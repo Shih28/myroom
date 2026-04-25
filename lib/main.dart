@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -114,8 +115,29 @@ class _MyRoomShellState extends State<MyRoomShell> {
     if (mounted) setState(() => _events = updated);
   }
 
-  void _onIdeaAdded(String text) async {
-    await DatabaseService.instance.insertIdea(text);
+  Future<void> _onIdeaAdded(String text) async {
+    final db = DatabaseService.instance;
+
+    // Save immediately so data isn't lost even if AI fails
+    final id = await db.insertIdea(text);
+    var updated = await db.getIdeas();
+    if (mounted) setState(() => _ideas = updated);
+
+    // AI enrichment — card shows "AI 分析中..." until this completes
+    final enrichment = await OpenAIService.instance.enrichIdea(text);
+    if (enrichment != null) {
+      final linksJson = jsonEncode(
+        enrichment.links.map((l) => {'title': l.title, 'url': l.url}).toList(),
+      );
+      await db.updateIdeaAiResult(id, enrichment.summary, linksJson);
+    }
+
+    updated = await db.getIdeas();
+    if (mounted) setState(() => _ideas = updated);
+  }
+
+  Future<void> _onIdeaDeleted(int id) async {
+    await DatabaseService.instance.deleteIdea(id);
     final updated = await DatabaseService.instance.getIdeas();
     if (mounted) setState(() => _ideas = updated);
   }
@@ -265,7 +287,7 @@ class _MyRoomShellState extends State<MyRoomShell> {
                       children: [
                         CalendarPage(events: _events, onEventAdded: _onEventAdded),
                         TodoPage(todos: _todos, onTodoAdded: _onTodoAdded, onTodoToggled: _onTodoToggled),
-                        IdeaPage(ideas: _ideas, onIdeaAdded: _onIdeaAdded),
+                        IdeaPage(ideas: _ideas, onIdeaAdded: _onIdeaAdded, onIdeaDeleted: _onIdeaDeleted),
                         NotePage(notes: _notes, onNoteSaved: _onNoteSaved),
                         RecapPage(onNavTo: (tab) => setState(() => _activeTab = tab)),
                       ],

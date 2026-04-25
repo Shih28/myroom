@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../models/recap_item.dart' show Era;
+import '../models/idea.dart' show IdeaLink;
+import '../models/ai_resource.dart';
 export '../models/recap_item.dart' show Era;
 
 // ─── Classification result types ─────────────────────────────────────────────
@@ -62,6 +64,14 @@ class ClassificationError extends ClassificationResult {
   final String message;
   final String? rawText; // original user input, for fallback
   ClassificationError({required this.message, this.rawText});
+}
+
+// ─── Idea enrichment types ────────────────────────────────────────────────────
+
+class IdeaEnrichment {
+  final String summary;
+  final List<IdeaLink> links;
+  const IdeaEnrichment({required this.summary, required this.links});
 }
 
 // ─── OpenAI service ───────────────────────────────────────────────────────────
@@ -269,6 +279,122 @@ class OpenAIService {
     } catch (e) {
       debugPrint('chat error: $e');
       return '發生未知錯誤，請再試一次。';
+    }
+  }
+
+  // ── Idea enrichment ─────────────────────────────────────────────────────────
+
+  static const _enrichSystemPrompt =
+      '你是一個知識整理助理。使用者輸入一個靈感或想法，你需要：\n'
+      '1. 用一句話（繁體中文，20-40字）概括這個靈感的核心洞察\n'
+      '2. 提供 2-3 個與此靈感相關的知名資源（書籍、論文、網站或工具）\n\n'
+      '回傳嚴格 JSON（不含其他文字）：\n'
+      '{ "summary": "...", "links": [{"title":"...","url":"https://..."}] }\n\n'
+      '規則：summary 必須是繁體中文，簡潔有力；links 最多 3 個；url 使用真實知名網址；只回傳 JSON';
+
+  Future<IdeaEnrichment?> enrichIdea(String ideaText) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(_endpoint),
+            headers: {
+              'Authorization': 'Bearer ${AppConfig.openAiApiKey}',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'model': AppConfig.openAiModel,
+              'messages': [
+                {'role': 'system', 'content': _enrichSystemPrompt},
+                {'role': 'user', 'content': ideaText},
+              ],
+              'response_format': {'type': 'json_object'},
+              'temperature': 0.5,
+              'max_tokens': 300,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode != 200) return null;
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final content = body['choices'][0]['message']['content'] as String;
+      final json = jsonDecode(content) as Map<String, dynamic>;
+
+      final summary = json['summary'] as String? ?? '';
+      final rawLinks = json['links'] as List? ?? [];
+      final links = rawLinks
+          .map((l) => IdeaLink(
+                title: l['title'] as String? ?? '',
+                url: l['url'] as String? ?? '',
+              ))
+          .where((l) => l.title.isNotEmpty && l.url.isNotEmpty)
+          .toList();
+
+      return IdeaEnrichment(summary: summary, links: links);
+    } catch (e) {
+      debugPrint('enrichIdea error: $e');
+      return null;
+    }
+  }
+
+  // ── Resource recommendations ─────────────────────────────────────────────────
+
+  static const _recommendSystemPrompt =
+      '你是一個知識推薦助理。根據使用者的靈感清單，推薦 4-6 個最相關的學習資源。\n\n'
+      '回傳嚴格 JSON（不含其他文字）：\n'
+      '{"resources":[{"title":"...","type":"書籍|文章|工具|課程|網站","desc":"一句話說明（繁體中文，20字以內）","url":"https://..."}]}\n\n'
+      '規則：url 使用真實知名網址；只回傳 JSON';
+
+  Future<List<AiResource>> fetchRecommendations(List<String> ideaTexts) async {
+    if (ideaTexts.isEmpty) return [];
+    try {
+      final numbered = ideaTexts
+          .take(5)
+          .toList()
+          .asMap()
+          .entries
+          .map((e) => '${e.key + 1}. ${e.value}')
+          .join('\n');
+      final prompt = '我的靈感清單：\n$numbered';
+
+      final response = await http
+          .post(
+            Uri.parse(_endpoint),
+            headers: {
+              'Authorization': 'Bearer ${AppConfig.openAiApiKey}',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'model': AppConfig.openAiModel,
+              'messages': [
+                {'role': 'system', 'content': _recommendSystemPrompt},
+                {'role': 'user', 'content': prompt},
+              ],
+              'response_format': {'type': 'json_object'},
+              'temperature': 0.6,
+              'max_tokens': 600,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode != 200) return [];
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
+      final content = body['choices'][0]['message']['content'] as String;
+      final rawList = (jsonDecode(content)['resources'] as List?) ?? [];
+
+      return rawList
+          .map((r) => AiResource(
+                title: r['title'] as String? ?? '',
+                type: r['type'] as String? ?? '資源',
+                desc: r['desc'] as String? ?? '',
+                url: r['url'] as String? ?? '',
+              ))
+          .where((r) => r.title.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('fetchRecommendations error: $e');
+      return [];
     }
   }
 

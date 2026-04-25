@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/event.dart';
 import '../models/todo_item.dart';
 import '../models/idea.dart';
+import '../models/ai_resource.dart';
 import '../models/recap_item.dart';
 import '../data/seed_data.dart';
 
@@ -37,11 +39,7 @@ class DatabaseService {
   Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
     final fullPath = join(dbPath, 'myroom.db');
-    return openDatabase(
-      fullPath,
-      version: 1,
-      onCreate: _onCreate,
-    );
+    return openDatabase(fullPath, version: 1, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -76,6 +74,8 @@ class DatabaseService {
       CREATE TABLE ideas (
         id         INTEGER PRIMARY KEY AUTOINCREMENT,
         text       TEXT    NOT NULL,
+        ai_summary TEXT,
+        links      TEXT,
         created_at INTEGER NOT NULL
       )
     ''');
@@ -108,6 +108,17 @@ class DatabaseService {
         is_user    INTEGER NOT NULL,
         text       TEXT    NOT NULL,
         created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE pinned_resources (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        title     TEXT    NOT NULL,
+        type      TEXT    NOT NULL,
+        desc      TEXT    NOT NULL,
+        url       TEXT    NOT NULL UNIQUE,
+        pinned_at INTEGER NOT NULL
       )
     ''');
 
@@ -268,7 +279,30 @@ class DatabaseService {
   Future<List<Idea>> getIdeas() async {
     final database = await db;
     final rows = await database.query('ideas', orderBy: 'created_at ASC');
-    return rows.map((r) => Idea(id: r['id'] as int, text: r['text'] as String)).toList();
+    return rows.map((r) {
+      final linksJson = r['links'] as String?;
+      final links = linksJson != null
+          ? (jsonDecode(linksJson) as List)
+              .map((l) => IdeaLink(title: l['title'] as String, url: l['url'] as String))
+              .toList()
+          : <IdeaLink>[];
+      return Idea(
+        id: r['id'] as int,
+        text: r['text'] as String,
+        aiSummary: r['ai_summary'] as String?,
+        links: links,
+      );
+    }).toList();
+  }
+
+  Future<void> updateIdeaAiResult(int id, String aiSummary, String linksJson) async {
+    final database = await db;
+    await database.update(
+      'ideas',
+      {'ai_summary': aiSummary, 'links': linksJson},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> insertIdea(String text) async {
@@ -277,6 +311,44 @@ class DatabaseService {
       'text': text,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     });
+  }
+
+  Future<void> deleteIdea(int id) async {
+    final database = await db;
+    await database.delete('ideas', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ─── PINNED RESOURCES ──────────────────────────────────────────────────────
+
+  Future<List<AiResource>> getPinnedResources() async {
+    final database = await db;
+    final rows = await database.query('pinned_resources', orderBy: 'pinned_at DESC');
+    return rows.map((r) => AiResource(
+      title: r['title'] as String,
+      type:  r['type']  as String,
+      desc:  r['desc']  as String,
+      url:   r['url']   as String,
+    )).toList();
+  }
+
+  Future<void> pinResource(AiResource r) async {
+    final database = await db;
+    await database.insert(
+      'pinned_resources',
+      {
+        'title': r.title,
+        'type': r.type,
+        'desc': r.desc,
+        'url': r.url,
+        'pinned_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+  Future<void> unpinResource(String url) async {
+    final database = await db;
+    await database.delete('pinned_resources', where: 'url = ?', whereArgs: [url]);
   }
 
   // ─── NOTES ─────────────────────────────────────────────────────────────────
