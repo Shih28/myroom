@@ -347,10 +347,12 @@ class OpenAIService {
   // ── Resource recommendations ─────────────────────────────────────────────────
 
   static const _recommendSystemPrompt =
-      '你是一個知識推薦助理。根據使用者的靈感清單，推薦 4-6 個最相關的學習資源。\n\n'
-      '回傳嚴格 JSON（不含其他文字）：\n'
-      '{"resources":[{"title":"...","type":"書籍|文章|工具|課程|網站","desc":"一句話說明（繁體中文，20字以內）","url":"https://..."}]}\n\n'
-      '規則：url 使用真實知名網址；只回傳 JSON';
+      '你是一個知識推薦助理。使用網路搜尋，根據使用者的靈感清單，'
+      '推薦 4-6 個目前仍可存取的最相關學習資源。\n\n'
+      '回傳嚴格 JSON（僅包含 JSON，不含其他文字）：\n'
+      '{"resources":[{"title":"...","type":"書籍|文章|工具|課程|網站",'
+      '"desc":"一句話說明（繁體中文，20字以內）","url":"https://..."}]}\n\n'
+      '規則：url 必須是目前可存取的真實網址；優先推薦有實際內容的頁面；只回傳 JSON';
 
   Future<List<AiResource>> fetchRecommendations(List<String> ideaTexts) async {
     if (ideaTexts.isEmpty) return [];
@@ -372,23 +374,22 @@ class OpenAIService {
               'Content-Type': 'application/json',
             },
             body: jsonEncode({
-              'model': AppConfig.openAiModel,
+              'model': AppConfig.openAiWebSearchModel,
+              'web_search_options': {},
               'messages': [
                 {'role': 'system', 'content': _recommendSystemPrompt},
                 {'role': 'user', 'content': prompt},
               ],
-              'response_format': {'type': 'json_object'},
-              'temperature': 0.6,
-              'max_tokens': 600,
+              'max_completion_tokens': 600,
             }),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode != 200) return [];
 
       final body = jsonDecode(utf8.decode(response.bodyBytes));
       final content = body['choices'][0]['message']['content'] as String;
-      final rawList = (jsonDecode(content)['resources'] as List?) ?? [];
+      final rawList = (jsonDecode(_extractJson(content))['resources'] as List?) ?? [];
 
       return rawList
           .map((r) => AiResource(
@@ -406,6 +407,13 @@ class OpenAIService {
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  /// Strips ```json ... ``` or ``` ... ``` fences that search-preview models
+  /// may wrap around their JSON output.
+  String _extractJson(String raw) {
+    final match = RegExp(r'```(?:json)?\s*([\s\S]*?)```').firstMatch(raw);
+    return match != null ? match.group(1)!.trim() : raw.trim();
+  }
 
   String _todayStr() {
     final n = DateTime.now();
