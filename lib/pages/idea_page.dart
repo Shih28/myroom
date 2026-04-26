@@ -468,7 +468,7 @@ class _IdeaPageState extends State<IdeaPage> {
                         child: Padding(
                           padding: const EdgeInsets.only(left: 2),
                           child: Icon(
-                            isPinned ? LucideIcons.bookmark : LucideIcons.bookmark,
+                            isPinned ? LucideIcons.bookmarkCheck: LucideIcons.bookmark,
                             size: 15,
                             color: isPinned ? AppColors.amber : AppColors.muted.withOpacity(0.5),
                           ),
