@@ -346,6 +346,8 @@ class OpenAIService {
       return (reply: '（AI 運算超出輪數限制，請再試）', dataMutated: dataMutated);
     } on SocketException {
       return (reply: '無法連線，請確認網路連線後再試。', dataMutated: dataMutated);
+    } on http.ClientException {
+      return (reply: '無法連線，請確認網路連線後再試。', dataMutated: dataMutated);
     } on TimeoutException {
       return (reply: '請求逾時，請稍後再試。', dataMutated: dataMutated);
     } catch (e) {
@@ -755,7 +757,7 @@ class OpenAIService {
       }
 
 
-      List<ClassificationResult> results = List.empty();
+      List<ClassificationResult> results = [];
       for (var item in rawItems) {
         ClassificationResult result = await _parseSingleItem(item as Map<String, dynamic>, combinedText);
         results.add(result);
@@ -763,6 +765,8 @@ class OpenAIService {
 
       return results;
     } on SocketException {
+      return [ClassificationError(message: '無法連線，請確認網路', rawText: combinedText)];
+    } on http.ClientException {
       return [ClassificationError(message: '無法連線，請確認網路', rawText: combinedText)];
     } on TimeoutException {
       return [ClassificationError(message: '請求逾時', rawText: combinedText)];
