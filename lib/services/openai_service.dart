@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:myroom/data/seed_data.dart';
 import 'package:myroom/services/database_service.dart';
 import '../config.dart';
 import '../models/recap_item.dart' show Era;
@@ -269,6 +270,7 @@ class OpenAIService {
       buf.write('\n\n你可以使用工具新增、刪除或查詢資料。你需要具備敏銳的洞察力，主動辨識出使用者的需求並使用工具，');
       buf.write('不一定需要使用者明確要求。例如，當使用者提出想法，將想法加入靈感；當使用者表示心情低落時，自動新增筆記；');
       buf.write('當使用者提出行程，依照時間的有無，加入行程或待辦事項。如需查詢完整清單或 id，請使用 list_* 工具。執行工具後，用繁體中文告知使用者結果。');
+      buf.write('今天日期：$todayKey()');
     }
     final systemMsg = buf.toString();
 
@@ -364,9 +366,10 @@ class OpenAIService {
       '你是一個知識整理助理。使用者輸入一個靈感或想法，你需要：\n'
       '1. 用一句話（繁體中文，20-40字）概括這個靈感的核心洞察\n'
       '2. 提供 2-3 個與此靈感相關的知名資源（書籍、論文、網站或工具）\n\n'
-      '回傳嚴格 JSON（不含其他文字）：\n'
-      '{ "summary": "...", "links": [{"title":"...","url":"https://..."}] }\n\n'
-      '規則：summary 必須是繁體中文，簡潔有力；links 最多 3 個；url 使用真實知名網址；只回傳 JSON';
+      '回傳格式限制：以 JSON 格式輸出，回傳以 ```json 開頭，``` 結尾，僅包含 JSON，不含其他說明：\n'
+      '範例輸出： "```json\n{ "summary": "養貓有益身心健康", "links": [{"title":"養貓前需要知道什麼？","url":"https://www.royalcanin.com/tw/cats/products/kitten-growth-program"}] }"\n'
+      'summary 是 20-40 字這個靈感的核心洞察（繁體中文），title 是資源的標題或簡短說明（繁體中文），url 是資源的連結\n\n'
+      '規則：summary 必須是繁體中文，簡潔有力；links 最多 3 個；url 使用真實網址；只回傳 JSON；絕對符合JSON格式';
 
   Future<IdeaEnrichment?> enrichIdea(String ideaText) async {
     try {
@@ -379,13 +382,12 @@ class OpenAIService {
             },
             body: jsonEncode({
               'model': AppConfig.openAiWebSearchModel,
+              'web_search_options': {},
               'messages': [
                 {'role': 'system', 'content': _enrichSystemPrompt},
                 {'role': 'user', 'content': ideaText},
               ],
-              'response_format': {'type': 'json_object'},
-              'temperature': 0.5,
-              'max_tokens': 300,
+              'max_completion_tokens': 300,
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -394,7 +396,7 @@ class OpenAIService {
 
       final body = jsonDecode(utf8.decode(response.bodyBytes));
       final content = body['choices'][0]['message']['content'] as String;
-      final json = jsonDecode(content) as Map<String, dynamic>;
+      final json = (jsonDecode(_extractJson(content)) as Map<String, dynamic>?) ?? {};
 
       final summary = json['summary'] as String? ?? '';
       final rawLinks = json['links'] as List? ?? [];
@@ -681,7 +683,9 @@ class OpenAIService {
       '- recap: {"type":"recap","era":"past|now|future","title":"...","desc":"...","date":"..."}\n\n'
       '特別說明：\n'
       '- todo 代表未指定時間的事項，例如「找個時間去買蘋果」\n'
-      '- todo_with_time 代表有明確時間的事項\n\n'
+      '- todo_with_time 代表有明確時間的事項\n'
+      '- idea 紀錄突然非任務性、突然冒出的想法或想做的事情\n'
+      '- note 紀錄各類成就、情緒、對於某件事物的評論，通常是完整句子\n\n'
       '規則：\n'
       '- 只回傳 JSON，不含其他文字\n'
       '- 每個拆解出來的事項「只能對應一個 item」\n'

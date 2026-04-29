@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../theme.dart';
 import '../models/event.dart';
@@ -521,17 +523,32 @@ class _AIChatOverlayState extends State<AIChatOverlay> with TickerProviderStateM
                   child: Row(
                     children: [
                       Expanded(
-                        child: TextField(
-                          controller: _inputCtrl,
-                          maxLines: 3,
-                          minLines: 1,
-                          decoration: InputDecoration(
-                            hintText: '輸入訊息...',
-                            hintStyle: AppText.body(color: AppColors.muted),
-                            border: InputBorder.none,
+                        child: Focus(
+                          onKeyEvent: (kIsWeb &&
+                                  defaultTargetPlatform != TargetPlatform.android &&
+                                  defaultTargetPlatform != TargetPlatform.iOS)
+                              ? (FocusNode _, KeyEvent event) {
+                                  if (event is KeyDownEvent &&
+                                      (event.logicalKey == LogicalKeyboardKey.enter ||
+                                       event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+                                      !HardwareKeyboard.instance.isShiftPressed) {
+                                    _send();
+                                    return KeyEventResult.handled;
+                                  }
+                                  return KeyEventResult.ignored;
+                                }
+                              : null,
+                          child: TextField(
+                            controller: _inputCtrl,
+                            maxLines: 3,
+                            minLines: 1,
+                            decoration: InputDecoration(
+                              hintText: '輸入訊息...',
+                              hintStyle: AppText.body(color: AppColors.muted),
+                              border: InputBorder.none,
+                            ),
+                            style: AppText.body(size: 14, height: 1.5),
                           ),
-                          style: AppText.body(size: 14, height: 1.5),
-                          onSubmitted: (_) => _send(),
                         ),
                       ),
                       const SizedBox(width: 6),

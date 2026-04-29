@@ -208,11 +208,11 @@ class DatabaseService {
       });
     }
 
-    for (final entry in SeedData.initNotes.entries) {
+    for (final n in SeedData.initNotes) {
       await db.insert('notes', {
-        'date_key': entry.key,
-        'content': entry.value,
-        'cat_id': null,
+        'date_key': n.dateKey,
+        'content': n.content,
+        'cat_id': n.catId,
         'updated_at': now,
       });
     }

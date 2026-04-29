@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:myroom/models/note_item.dart';
 import 'package:myroom/services/database_service.dart';
@@ -76,6 +78,9 @@ class _NotePageState extends State<NotePage> {
   List<NoteCategory> _categories = [];
   Map<String, List<NoteItem>> _catNotes = {};
 
+  // ── Inline add-note state ────────────────────────────────────────────────
+  String? _inlineCatId;
+
   // ── AI state ─────────────────────────────────────────────────────────────
   bool _classifyingNote = false;
 
@@ -108,7 +113,13 @@ class _NotePageState extends State<NotePage> {
     for (final c in cats) {
       notesMap[c.id] = await DatabaseService.instance.getNotesByCategory(c.id);
     }
-    if (mounted) setState(() { _categories = cats; _catNotes = notesMap; });
+    if (mounted) {
+      setState(() {
+        _categories = cats;
+        _catNotes = notesMap;
+        _inlineCatId ??= cats.isNotEmpty ? cats.first.id : null;
+      });
+    }
   }
 
   Future<void> _loadCatNotes(String catId) async {
@@ -124,6 +135,7 @@ class _NotePageState extends State<NotePage> {
     if (_noteCtrl != null && primary != null &&
         _noteCtrl!.text != primary.content) {
       _noteCtrl!.text = primary.content;
+      _editorContent = primary.content;
     }
     setState(() => _dayNotes = notes);
   }
@@ -211,90 +223,6 @@ class _NotePageState extends State<NotePage> {
     widget.onNotesMutated();
   }
 
-  // ── Dialogs ───────────────────────────────────────────────────────────────
-
-  void _showAddNoteToDayDialog(String dateKey) {
-    if (_categories.isEmpty) return;
-    final contentCtrl = TextEditingController();
-    String selectedCatId = _categories.first.id;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialog) => AlertDialog(
-          backgroundColor: AppColors.bg,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('新增筆記', style: AppText.body(size: 16, weight: FontWeight.w600)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: contentCtrl,
-                maxLines: 4,
-                decoration: _fieldDecoration('內容'),
-                style: AppText.body(size: 14, height: 1.6),
-              ),
-              const SizedBox(height: 12),
-              Text('分類', style: AppText.caption(size: 11, weight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6, runSpacing: 6,
-                children: _categories.map((c) {
-                  final isSelected = c.id == selectedCatId;
-                  return GestureDetector(
-                    onTap: () => setDialog(() => selectedCatId = c.id),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.dark : AppColors.border,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        c.label,
-                        style: AppText.caption(
-                          size: 12,
-                          color: isSelected ? Colors.white : AppColors.muted,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
-            ),
-            TextButton(
-              onPressed: () async {
-                final content = contentCtrl.text.trim();
-                if (content.isEmpty) return;
-                Navigator.pop(ctx);
-                await DatabaseService.instance.insertCatNote(
-                  dateKey,
-                  content,
-                  selectedCatId,
-                );
-                await Future.wait([
-                  _loadDayNotes(dateKey),
-                  _loadCatNotes(selectedCatId),
-                ]);
-                widget.onNotesMutated();
-              },
-              child: Text(
-                '儲存',
-                style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.dark),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _showAddCategoryDialog() {
     final labelCtrl = TextEditingController();
@@ -694,18 +622,12 @@ class _NotePageState extends State<NotePage> {
                           widget.onNotesMutated();
                         },
                         child: Padding(
-                          padding: const EdgeInsets.only(right: 10),
+                          padding: const EdgeInsets.only(right: 4),
                           child: Icon(
                             LucideIcons.eraser, size: 15, color: AppColors.muted,
                           ),
                         ),
                       ),
-                    GestureDetector(
-                      onTap: _closeDayPanel,
-                      child: const Icon(
-                        LucideIcons.save, size: 16, color: AppColors.muted,
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -714,6 +636,66 @@ class _NotePageState extends State<NotePage> {
                     controller: _noteCtrl!,
                     onChanged: _saveNote,
                   ),
+                if (_categories.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6, runSpacing: 6,
+                    children: _categories.map((c) {
+                      final isSelected = c.id == _inlineCatId;
+                      return GestureDetector(
+                        onTap: () => setState(() => _inlineCatId = c.id),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.dark : AppColors.border,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            c.label,
+                            style: AppText.caption(
+                              size: 12,
+                              color: isSelected ? Colors.white : AppColors.muted,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () async {
+                      final content = _editorContent.trim();
+                      final catId = _inlineCatId;
+                      if (content.isEmpty || catId == null) return;
+                      _noteCtrl?.clear();
+                      setState(() => _editorContent = '');
+                      await DatabaseService.instance.upsertNote(_noteKey, '');
+                      await DatabaseService.instance.insertCatNote(_noteKey, content, catId);
+                      await Future.wait([
+                        _loadDayNotes(_noteKey),
+                        _loadCatNotes(catId),
+                      ]);
+                      widget.onNotesMutated();
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.dark,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '儲存',
+                        textAlign: TextAlign.center,
+                        style: AppText.label(
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -722,30 +704,6 @@ class _NotePageState extends State<NotePage> {
           ..._dayNotes
               .where((n) => n.catId != null)
               .map((note) => _buildDayNoteCard(note)),
-
-          const SizedBox(height: 8),
-
-          // Add more note button
-          GestureDetector(
-            onTap: () => _showAddNoteToDayDialog(_noteKey),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: AppColors.bg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.plus, size: 14, color: AppColors.muted),
-                  const SizedBox(width: 6),
-                  Text('新增筆記', style: AppText.label(size: 13)),
-                ],
-              ),
-            ),
-          ),
         ],
       ],
     );
@@ -938,17 +896,33 @@ class _NoteEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: 6,
-      scrollPadding: const EdgeInsets.only(bottom: 120.0),
-      decoration: InputDecoration(
-        hintText: '在這裡寫下今天的筆記...',
-        hintStyle: AppText.body(color: AppColors.muted),
-        border: InputBorder.none,
+    return Focus(
+      onKeyEvent: (kIsWeb &&
+              defaultTargetPlatform != TargetPlatform.android &&
+              defaultTargetPlatform != TargetPlatform.iOS)
+          ? (FocusNode _, KeyEvent event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.enter ||
+                   event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+                  !HardwareKeyboard.instance.isShiftPressed) {
+                onChanged(controller.text);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            }
+          : null,
+      child: TextField(
+        controller: controller,
+        maxLines: 4,
+        scrollPadding: const EdgeInsets.only(bottom: 120.0),
+        decoration: InputDecoration(
+          hintText: '在這裡寫下今天的筆記...',
+          hintStyle: AppText.body(color: AppColors.muted),
+          border: InputBorder.none,
+        ),
+        style: AppText.body(size: 14, height: 1.7),
+        onChanged: onChanged,
       ),
-      style: AppText.body(size: 14, height: 1.7),
-      onChanged: onChanged,
     );
   }
 }

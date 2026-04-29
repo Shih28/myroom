@@ -286,7 +286,7 @@ class _MyRoomShellState extends State<MyRoomShell> {
               ),
               const SizedBox(width: 7),
               MrIconButton(
-                icon: LucideIcons.user,
+                icon: LucideIcons.settings,
                 iconSize: 16,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const SettingPage()),
@@ -368,7 +368,6 @@ class _MyRoomShellState extends State<MyRoomShell> {
                         _KeepAlive(child: IdeaPage(ideas: _ideas, onIdeaAdded: _onIdeaAdded, onIdeaDeleted: _onIdeaDeleted)),
                         _KeepAlive(child: NotePage(notes: _notes, onNotesMutated: _onNotesMutated)),
                         _KeepAlive(child: RecapPage(
-                          onNavTo: _jumpToTab,
                           todos: _todos,
                           events: _events,
                           ideas: _ideas,
