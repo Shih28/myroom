@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:myroom/models/note_item.dart';
 import '../models/event.dart';
 import '../models/todo_item.dart';
 import '../models/idea.dart';
@@ -6,7 +7,6 @@ import '../models/recap_item.dart';
 import '../theme.dart';
 
 const kDow = ['日', '一', '二', '三', '四', '五', '六'];
-const kMonthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
 
 const kEraLabel = {Era.past: '過去', Era.now: '現在', Era.future: '未來'};
 const kEraColor = {
@@ -20,42 +20,6 @@ const kCatColors = {
   '學習': AppColors.sage,
   '個人': AppColors.rose,
   '健康': AppColors.amber,
-};
-
-class NoteEntry {
-  final String title;
-  final String date;
-  final String preview;
-  const NoteEntry({required this.title, required this.date, required this.preview});
-}
-
-const kCatNotes = {
-  'undefined': [
-    NoteEntry(title: '習慣養成的非線性路徑', date: '4月23日', preview: '今天讀到一篇關於習慣形成的文章，發現改變不是線性的...'),
-    NoteEntry(title: '靈感碎片', date: '4月19日', preview: '隨手記下幾個想法，還沒成型，但感覺有點意思...'),
-    NoteEntry(title: '週末隨筆', date: '4月13日', preview: '難得的悠閒下午，坐在咖啡廳裡寫下這些文字...'),
-  ],
-  'training': [
-    NoteEntry(title: '英文口說練習記錄', date: '4月23日', preview: '今天練習了商業英文對話，重點放在簡報表達...'),
-    NoteEntry(title: '吉他和弦練習', date: '4月21日', preview: 'Am, Em, C, G 四個和弦的轉換練習，進步了一些...'),
-    NoteEntry(title: '跑步訓練計畫', date: '4月18日', preview: '制定了未來一個月的跑步計畫，目標每週三次...'),
-    NoteEntry(title: '游泳紀錄', date: '4月10日', preview: '今天游了800公尺，比上次進步，換氣節奏更穩了...'),
-    NoteEntry(title: '鋼琴練習', date: '4月5日', preview: '練習《小星星變奏曲》，左右手配合還需要加強...'),
-  ],
-  'diary': [
-    NoteEntry(title: '週五反思', date: '4月18日', preview: '這週完成了設計稿的初版，但總覺得少了些什麼...'),
-    NoteEntry(title: '旅行中的思考', date: '4月10日', preview: '在台中的一個下午，坐在公園裡看著來來往往的人...'),
-    NoteEntry(title: '三十歲之前', date: '4月1日', preview: '寫下了一些在三十歲前想完成的事，有些天馬行空...'),
-    NoteEntry(title: '疲憊的一天', date: '3月28日', preview: '今天特別累，但回顧一下，其實做了不少事情...'),
-    NoteEntry(title: '春天來了', date: '3月20日', preview: '走在路上，突然感受到空氣中有春天的味道...'),
-    NoteEntry(title: '深夜思考', date: '3月15日', preview: '睡不著，腦子裡轉著很多事，索性起來寫下來...'),
-    NoteEntry(title: '年度計畫中期回顧', date: '3月1日', preview: '距離年初立的目標，有些做到了，有些還差很遠...'),
-    NoteEntry(title: '初春閒筆', date: '2月14日', preview: '情人節，一個人窩在家裡，反而覺得很自在...'),
-  ],
-  'academic': [
-    NoteEntry(title: '設計系統筆記', date: '4月20日', preview: '整理了 Figma 設計系統的規範，顏色與字型層級...'),
-    NoteEntry(title: '認知心理學摘要', date: '4月12日', preview: '讀了關於認知負荷理論的章節，對 UI 設計很有啟發...'),
-  ],
 };
 
 class ResourceItem {
@@ -83,6 +47,13 @@ class SeedData {
     const CalendarEvent(id: 6, title: '團隊活動', startYear: 2026, startMonth: 4, startDay: 22, startHour: 0, startMin: 0, endYear: 2026, endMonth: 4, endDay: 24, endHour: 23, endMin: 59, color: AppColors.blue, allDay: true),
   ];
 
+  static List<TodoCategory> get initCategories => [
+    const TodoCategory(id: 1, name: '工作', color: AppColors.blue),
+    const TodoCategory(id: 2, name: '學習', color: AppColors.sage),
+    const TodoCategory(id: 3, name: '個人', color: AppColors.rose),
+    const TodoCategory(id: 4, name: '健康', color: AppColors.amber)
+  ];
+
   static List<TodoItem> get initTodos => [
     const TodoItem(id: 1, text: '整理研究筆記', done: false, cat: '學習', color: AppColors.sage, priority: 2),
     const TodoItem(id: 2, text: '回覆 Lucas 的信件', done: true, cat: '工作', color: AppColors.blue, priority: 1),
@@ -98,10 +69,18 @@ class SeedData {
     const Idea(id: 3, text: '靜心日記與情緒追蹤整合'),
   ];
 
-  static Map<String, String> get initNotes => {
-    '2026-04-22': '今天完成了設計原型的第一版，花了比預期更多的時間在細節上。顏色系統和字型搭配反覆調整，最終找到了一個感覺「對」的組合。\n\n下一步要開始考慮互動動畫，讓整體體驗更流暢。',
-    '2026-04-20': '讀完了《原子習慣》第二章，關於習慣迴路的部分很有共鳴。\n\n試著把自己的早晨例行公事套入「提示→慣例→獎勵」的框架，發現其實有很多可以優化的地方。',
-  };
+  static List<NoteCategory> get initNoteCategories => [
+    const NoteCategory(id: 'undefined', label: '未分類', iconName: 'tag', color: Color(0xFFBFA97A), bg: Color(0xFFFFF8ED), sortOrder: 0),
+    const NoteCategory(id: 'academic', label: '學業', iconName: 'pencil', color: Color(0xFFBF7A8E), bg: Color(0xFFF5EEF0), sortOrder: 1),
+    const NoteCategory(id: 'sport', label: '運動', iconName: 'trophy', color: Color(0xFF7A8EBF) , bg: Color(0xFFEEF0F5), sortOrder: 2),
+  ];
+
+  static List<NoteItem> get initNotes => [
+    NoteItem(id: 0, dateKey: '2026-04-20', content: '整理了 Figma 設計系統的規範，顏色與字型層級...', catId: 'academic', updatedAt: -1),
+    NoteItem(id: 1, dateKey: '2026-04-12', content: '讀了關於認知負荷理論的章節，對 UI 設計很有啟發...', catId: 'academic', updatedAt: -1),
+    NoteItem(id: 2, dateKey: '2026-04-10', content: '今天游了800公尺，比上次進步，換氣節奏更穩了...', catId: 'sport', updatedAt: -1),
+    NoteItem(id: 3, dateKey: '2026-04-22', content: '今天完成了設計原型的第一版，花了比預期更多的時間在細節上。顏色系統和字型搭配反覆調整，最終找到了一個感覺「對」的組合。\n\n下一步要開始考慮互動動畫，讓整體體驗更流暢。', catId: 'academic', updatedAt: -1),
+  ];
 
   static List<RecapItem> get timelineData => [
     const RecapItem(

@@ -20,7 +20,6 @@ class _AIContent {
 // ─── RecapPage ────────────────────────────────────────────────────────────────
 
 class RecapPage extends StatefulWidget {
-  final ValueChanged<int> onNavTo;
   final List<TodoItem> todos;
   final List<CalendarEvent> events;
   final List<Idea> ideas;
@@ -29,7 +28,6 @@ class RecapPage extends StatefulWidget {
 
   const RecapPage({
     super.key,
-    required this.onNavTo,
     required this.todos,
     required this.events,
     required this.ideas,

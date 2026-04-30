@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:myroom/data/seed_data.dart';
 import 'package:myroom/services/database_service.dart';
 import '../config.dart';
 import '../models/recap_item.dart' show Era;
@@ -91,153 +92,6 @@ class OpenAIService {
 
   static const _endpoint = 'https://api.openai.com/v1/chat/completions';
 
-  // ── Classification ──────────────────────────────────────────────────────────
-
-  static const _classificationSystemPrompt = '''
-你是一個個人生產力助理的資料分類引擎。
-使用者輸入任意文字，你必須判斷它屬於哪一種類型，並回傳 JSON。
-
-可能的類型：
-1. "todo"：一件需要完成的事（沒有明確時間）
-   → { "type":"todo", "text":"任務描述", "cat":"工作|學習|個人|健康" }
-
-2. "todo_with_time"：有明確時間的行程或任務
-   → { "type":"todo_with_time", "text":"標題", "cat":"工作|學習|個人|健康",
-       "start_day":24, "start_hour":9, "start_min":0,
-       "end_day":24, "end_hour":10, "end_min":0 }
-   （日期只用月份中的「日」數字，例如 4月24日 → 24）
-
-3. "idea"：靈感、想法、創意
-   → { "type":"idea", "text":"靈感內容" }
-
-4. "note"：日記、心情、反思、隨筆
-   → { "type":"note", "date_key":"YYYY-MM-DD", "content":"完整內容" }
-   （date_key 用今天日期，除非使用者明確指定其他日期）
-
-5. "recap"：成就、目標、里程碑
-   → { "type":"recap", "era":"past|now|future", "title":"標題", "desc":"描述", "date":"日期字串" }
-
-規則：
-- 只回傳 JSON，不要其他文字
-- 若無法確定，優先選 "note"
-- cat 只能是：工作、學習、個人、健康
-- era 只能是：past、now、future
-- 今天日期由系統提供''';
-
-  Future<ClassificationResult> classifyInput(String text) async {
-    assert(
-      AppConfig.openAiApiKey != 'sk-YOUR_KEY_HERE',
-      'Please set your OpenAI API key in lib/config.dart',
-    );
-
-    final today = _todayStr();
-
-    try {
-      final response = await http
-          .post(
-            Uri.parse(_endpoint),
-            headers: {
-              'Authorization': 'Bearer ${AppConfig.openAiApiKey}',
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'model': AppConfig.openAiModel,
-              'messages': [
-                {
-                  'role': 'system',
-                  'content': '$_classificationSystemPrompt\n今天日期：$today',
-                },
-                {'role': 'user', 'content': text},
-              ],
-              'response_format': {'type': 'json_object'},
-              'temperature': 0.2,
-              'max_tokens': 200,
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode != 200) {
-        debugPrint('OpenAI error ${response.statusCode}: ${response.body}');
-        return ClassificationError(
-          message: 'API 回應錯誤（${response.statusCode}）',
-          rawText: text,
-        );
-      }
-
-      final body = jsonDecode(utf8.decode(response.bodyBytes));
-      final content = body['choices'][0]['message']['content'] as String;
-      return _parseClassification(content, text);
-    } on SocketException {
-      return ClassificationError(message: '無法連線，請確認網路', rawText: text);
-    } on TimeoutException {
-      return ClassificationError(message: '請求逾時', rawText: text);
-    } catch (e) {
-      debugPrint('classifyInput error: $e');
-      return ClassificationError(message: '未知錯誤', rawText: text);
-    }
-  }
-
-  ClassificationResult _parseClassification(String content, String rawText) {
-    try {
-      final j = jsonDecode(content) as Map<String, dynamic>;
-      final type = j['type'] as String? ?? '';
-
-      switch (type) {
-        case 'todo':
-          return ClassifiedTodo(
-            text: j['text'] as String? ?? rawText,
-            cat: _safecat(j['cat']),
-          );
-
-        case 'todo_with_time':
-          return ClassifiedTodoWithTime(
-            text: j['text'] as String? ?? rawText,
-            cat: _safecat(j['cat']),
-            startDay:   (j['start_day']   as num?)?.toInt() ?? DateTime.now().day,
-            startHour:  (j['start_hour']  as num?)?.toInt() ?? 9,
-            startMin:   (j['start_min']   as num?)?.toInt() ?? 0,
-            endDay:     (j['end_day']     as num?)?.toInt() ?? DateTime.now().day,
-            endHour:    (j['end_hour']    as num?)?.toInt() ?? 10,
-            endMin:     (j['end_min']     as num?)?.toInt() ?? 0,
-          );
-
-        case 'idea':
-          return ClassifiedIdea(text: j['text'] as String? ?? rawText);
-
-        case 'note':
-          return ClassifiedNote(
-            dateKey: j['date_key'] as String? ?? _todayStr(),
-            content: j['content'] as String? ?? rawText,
-          );
-
-        case 'recap':
-          final eraStr = j['era'] as String? ?? 'now';
-          final era = Era.values.firstWhere(
-            (e) => e.name == eraStr,
-            orElse: () => Era.now,
-          );
-          return ClassifiedRecap(
-            era: era,
-            title: j['title'] as String? ?? rawText,
-            desc: j['desc'] as String? ?? '',
-            date: j['date'] as String? ?? _todayStr(),
-          );
-
-        default:
-          // Fallback: save as note
-          return ClassifiedNote(dateKey: _todayStr(), content: rawText);
-      }
-    } on FormatException {
-      return ClassificationError(message: 'JSON 解析失敗', rawText: rawText);
-    }
-  }
-
-  String _safecat(dynamic v) {
-    const valid = ['工作', '學習', '個人', '健康'];
-    final s = v as String? ?? '';
-    return valid.contains(s) ? s : '個人';
-  }
-
   // ── Chat ────────────────────────────────────────────────────────────────────
 
   // Tool definitions exposed to GPT for CRUD operations.
@@ -275,6 +129,8 @@ class OpenAIService {
             'end_day':     <String, dynamic>{'type': 'integer', 'description': '結束日'},
             'end_hour':    <String, dynamic>{'type': 'integer', 'description': '結束小時（24h）'},
             'end_min':     <String, dynamic>{'type': 'integer', 'description': '結束分鐘'},
+            'description': <String, dynamic>{'type': 'string',  'description': '詳細說明'},
+            'location':    <String, dynamic>{'type': 'string',  'description': '地點'},
           },
           'required': ['title', 'start_year', 'start_month', 'start_day',
                        'start_hour', 'start_min', 'end_year', 'end_month',
@@ -406,14 +262,15 @@ class OpenAIService {
     );
 
     final buf = StringBuffer();
-    buf.write('你是 MyRoom 個人助理。以下是使用者的完整資料：\n\n$contextSummary\n\n');
+    buf.write('你是 MyRoom 個人助理。以下是使用者資料摘要（如需完整清單含 id，請使用 list_* 工具）：\n\n$contextSummary\n\n');
     if (selfIntro.isNotEmpty) buf.write('【關於使用者】$selfIntro\n\n');
     if (aiInstructions.isNotEmpty) buf.write('【回覆指示】$aiInstructions\n\n');
     buf.write('請用繁體中文回答，語氣簡潔友善。回答盡量不超過 150 字，除非需要【回覆指示】中要求。');
     if (toolExecutor != null) {
-      buf.write('\n\n你可以使用工具新增或刪除資料。你需要具備敏銳的洞察力，主動辨識出使用者的需求並使用工具，');
+      buf.write('\n\n你可以使用工具新增、刪除或查詢資料。你需要具備敏銳的洞察力，主動辨識出使用者的需求並使用工具，');
       buf.write('不一定需要使用者明確要求。例如，當使用者提出想法，將想法加入靈感；當使用者表示心情低落時，自動新增筆記；');
-      buf.write('當使用者提出行程，依照時間的有無，加入行程或待辦事項。執行工具後，用繁體中文告知使用者結果。');
+      buf.write('當使用者提出行程，依照時間的有無，加入行程或待辦事項。如需查詢完整清單或 id，請使用 list_* 工具。執行工具後，用繁體中文告知使用者結果。');
+      buf.write('今天日期：$todayKey()');
     }
     final systemMsg = buf.toString();
 
@@ -493,6 +350,8 @@ class OpenAIService {
       return (reply: '（AI 運算超出輪數限制，請再試）', dataMutated: dataMutated);
     } on SocketException {
       return (reply: '無法連線，請確認網路連線後再試。', dataMutated: dataMutated);
+    } on http.ClientException {
+      return (reply: '無法連線，請確認網路連線後再試。', dataMutated: dataMutated);
     } on TimeoutException {
       return (reply: '請求逾時，請稍後再試。', dataMutated: dataMutated);
     } catch (e) {
@@ -507,9 +366,10 @@ class OpenAIService {
       '你是一個知識整理助理。使用者輸入一個靈感或想法，你需要：\n'
       '1. 用一句話（繁體中文，20-40字）概括這個靈感的核心洞察\n'
       '2. 提供 2-3 個與此靈感相關的知名資源（書籍、論文、網站或工具）\n\n'
-      '回傳嚴格 JSON（不含其他文字）：\n'
-      '{ "summary": "...", "links": [{"title":"...","url":"https://..."}] }\n\n'
-      '規則：summary 必須是繁體中文，簡潔有力；links 最多 3 個；url 使用真實知名網址；只回傳 JSON';
+      '回傳格式限制：以 JSON 格式輸出，回傳以 ```json 開頭，``` 結尾，僅包含 JSON，不含其他說明：\n'
+      '範例輸出： "```json\n{ "summary": "養貓有益身心健康", "links": [{"title":"養貓前需要知道什麼？","url":"https://www.royalcanin.com/tw/cats/products/kitten-growth-program"}] }"\n'
+      'summary 是 20-40 字這個靈感的核心洞察（繁體中文），title 是資源的標題或簡短說明（繁體中文），url 是資源的連結\n\n'
+      '規則：summary 必須是繁體中文，簡潔有力；links 最多 3 個；url 使用真實網址；只回傳 JSON；絕對符合JSON格式';
 
   Future<IdeaEnrichment?> enrichIdea(String ideaText) async {
     try {
@@ -521,14 +381,13 @@ class OpenAIService {
               'Content-Type': 'application/json',
             },
             body: jsonEncode({
-              'model': AppConfig.openAiModel,
+              'model': AppConfig.openAiWebSearchModel,
+              'web_search_options': {},
               'messages': [
                 {'role': 'system', 'content': _enrichSystemPrompt},
                 {'role': 'user', 'content': ideaText},
               ],
-              'response_format': {'type': 'json_object'},
-              'temperature': 0.5,
-              'max_tokens': 300,
+              'max_completion_tokens': 300,
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -537,7 +396,7 @@ class OpenAIService {
 
       final body = jsonDecode(utf8.decode(response.bodyBytes));
       final content = body['choices'][0]['message']['content'] as String;
-      final json = jsonDecode(content) as Map<String, dynamic>;
+      final json = (jsonDecode(_extractJson(content)) as Map<String, dynamic>?) ?? {};
 
       final summary = json['summary'] as String? ?? '';
       final rawLinks = json['links'] as List? ?? [];
@@ -824,7 +683,9 @@ class OpenAIService {
       '- recap: {"type":"recap","era":"past|now|future","title":"...","desc":"...","date":"..."}\n\n'
       '特別說明：\n'
       '- todo 代表未指定時間的事項，例如「找個時間去買蘋果」\n'
-      '- todo_with_time 代表有明確時間的事項\n\n'
+      '- todo_with_time 代表有明確時間的事項\n'
+      '- idea 紀錄突然非任務性、突然冒出的想法或想做的事情\n'
+      '- note 紀錄各類成就、情緒、對於某件事物的評論，通常是完整句子\n\n'
       '規則：\n'
       '- 只回傳 JSON，不含其他文字\n'
       '- 每個拆解出來的事項「只能對應一個 item」\n'
@@ -854,7 +715,7 @@ class OpenAIService {
 
     final today = _todayStr();
     final categories = await DatabaseService.instance.getCategories();
-    final systemContent = '$_multiClassifySystemPrompt\n今天日期：$today\ncat只能是：${categories.map((c) => c.name).join('|')}';
+    final systemContent = '$_multiClassifySystemPrompt\n今天日期：$today\n- cat只能是：${categories.map((c) => c.name).join('|')}';
 
     // Build user message content: text part + optional image parts
     final List<Map<String, dynamic>> userContent = [
@@ -897,16 +758,21 @@ class OpenAIService {
       final j = jsonDecode(content) as Map<String, dynamic>;
       final rawItems = j['items'] as List? ?? [];
 
-      print(j);
-
       if (rawItems.isEmpty) {
         return [ClassifiedNote(dateKey: today, content: combinedText.isNotEmpty ? combinedText : rawInput)];
       }
 
-      return rawItems
-          .map((item) => _parseSingleItem(item as Map<String, dynamic>, combinedText))
-          .toList();
+
+      List<ClassificationResult> results = [];
+      for (var item in rawItems) {
+        ClassificationResult result = await _parseSingleItem(item as Map<String, dynamic>, combinedText);
+        results.add(result);
+      }
+
+      return results;
     } on SocketException {
+      return [ClassificationError(message: '無法連線，請確認網路', rawText: combinedText)];
+    } on http.ClientException {
       return [ClassificationError(message: '無法連線，請確認網路', rawText: combinedText)];
     } on TimeoutException {
       return [ClassificationError(message: '請求逾時', rawText: combinedText)];
@@ -916,27 +782,33 @@ class OpenAIService {
     }
   }
 
-  ClassificationResult _parseSingleItem(Map<String, dynamic> j, String rawText) {
+  Future<ClassificationResult> _parseSingleItem(Map<String, dynamic> j, String rawText) async {
     final type = j['type'] as String? ?? '';
+    final validCat = await DatabaseService.instance.getCategories();
+    String safecat(dynamic v) {
+      final s = v as String? ?? '';
+      return validCat.map((c) => c.name).contains(s) ? s : validCat.isEmpty ? validCat[0].name : '';
+    }
+
     switch (type) {
       case 'todo':
         return ClassifiedTodo(
           text: j['text'] as String? ?? rawText,
-          cat: _safecat(j['cat']),
+          cat: safecat(j['cat']),
         );
       case 'todo_with_time':
         return ClassifiedTodoWithTime(
           text: j['text'] as String? ?? rawText,
-          cat: _safecat(j['cat']),
+          cat: safecat(j['cat']),
           startYear:  (j['start_year']  as num?)?.toInt(),
           startMonth: (j['start_month'] as num?)?.toInt(),
           startDay:   (j['start_day']   as num?)?.toInt() ?? DateTime.now().day,
-          startHour:  (j['start_hour']  as num?)?.toInt() ?? 9,
+          startHour:  (j['start_hour']  as num?)?.toInt() ?? 8,
           startMin:   (j['start_min']   as num?)?.toInt() ?? 0,
           endYear:    (j['end_year']    as num?)?.toInt(),
           endMonth:   (j['end_month']   as num?)?.toInt(),
           endDay:     (j['end_day']     as num?)?.toInt() ?? DateTime.now().day,
-          endHour:    (j['end_hour']    as num?)?.toInt() ?? 10,
+          endHour:    (j['end_hour']    as num?)?.toInt() ?? 9,
           endMin:     (j['end_min']     as num?)?.toInt() ?? 0,
         );
       case 'idea':

@@ -1,7 +1,9 @@
+import 'dart:async' show StreamSubscription;
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:pdfrx/pdfrx.dart';
@@ -53,6 +55,8 @@ class _AddOverlayState extends State<AddOverlay>
   final _textCtrl = TextEditingController();
   final _recorder = AudioRecorder();
   final List<_Attachment> _attachments = [];
+  StreamSubscription<Uint8List>? _streamSub;
+  final List<int> _recordedChunks = [];
 
   bool _classifying = false;
   bool _recording = false;
@@ -81,6 +85,7 @@ class _AddOverlayState extends State<AddOverlay>
   void dispose() {
     _ctrl.dispose();
     _textCtrl.dispose();
+    _streamSub?.cancel();
     _recorder.dispose();
     super.dispose();
   }
@@ -144,7 +149,7 @@ class _AddOverlayState extends State<AddOverlay>
       for (int i = 1; i <= doc.pages.length; i++) {
         final page = doc.pages[i - 1];
         final text = await page.loadText();
-        buf.write(text.fullText);
+        buf.write(text?.fullText);
         buf.write('\n');
       }
       return buf.toString().trim();
@@ -165,32 +170,30 @@ class _AddOverlayState extends State<AddOverlay>
   }
 
   Future<void> _startRecording() async {
-    // Request mic permission on mobile; desktop doesn't need it
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       final status = await Permission.microphone.request();
       if (!status.isGranted) return;
     }
-
-    final path = '${Directory.systemTemp.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+    _recordedChunks.clear();
+    final stream = await _recorder.startStream(
+      const RecordConfig(encoder: AudioEncoder.aacLc, sampleRate: 16000),
+    );
+    _streamSub = stream.listen((chunk) => _recordedChunks.addAll(chunk));
     if (mounted) setState(() => _recording = true);
   }
 
   Future<void> _stopRecording() async {
-    final path = await _recorder.stop();
+    await _recorder.stop();
+    await _streamSub?.cancel();
+    _streamSub = null;
     if (!mounted) return;
     setState(() => _recording = false);
 
-    if (path == null) return;
-    final file = File(path);
-    if (!await file.exists()) return;
-
-    final bytes = await file.readAsBytes();
-    await file.delete();
-
-    if (bytes.isNotEmpty && mounted) {
+    if (_recordedChunks.isNotEmpty) {
+      final bytes = Uint8List.fromList(_recordedChunks);
+      _recordedChunks.clear();
       setState(() => _attachments.add(
-        _Attachment(type: _AttachType.audio, name: 'recording.m4a', bytes: Uint8List.fromList(bytes)),
+        _Attachment(type: _AttachType.audio, name: 'recording.m4a', bytes: bytes),
       ));
     }
   }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
@@ -238,16 +240,32 @@ class _IdeaPageState extends State<IdeaPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              TextField(
-                controller: _draftCtrl,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  hintText: '記下你的靈感...',
-                  hintStyle: AppText.body(color: AppColors.muted),
-                  border: InputBorder.none,
+              Focus(
+                onKeyEvent: (kIsWeb &&
+                        defaultTargetPlatform != TargetPlatform.android &&
+                        defaultTargetPlatform != TargetPlatform.iOS)
+                    ? (FocusNode _, KeyEvent event) {
+                        if (event is KeyDownEvent &&
+                            (event.logicalKey == LogicalKeyboardKey.enter ||
+                             event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
+                            !HardwareKeyboard.instance.isShiftPressed) {
+                          _addIdea();
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      }
+                    : null,
+                child: TextField(
+                  controller: _draftCtrl,
+                  maxLines: 2,
+                  scrollPadding: const EdgeInsets.only(bottom: 120.0),
+                  decoration: InputDecoration(
+                    hintText: '記下你的靈感...',
+                    hintStyle: AppText.body(color: AppColors.muted),
+                    border: InputBorder.none,
+                  ),
+                  style: AppText.body(size: 14, height: 1.55),
                 ),
-                style: AppText.body(size: 14, height: 1.55),
-                onSubmitted: (_) => _addIdea(),
               ),
               const SizedBox(height: 8),
               GestureDetector(
