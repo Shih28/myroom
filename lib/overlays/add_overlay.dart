@@ -11,6 +11,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import '../theme.dart';
 import '../services/openai_service.dart';
+import '../services/database_service.dart';
+import '../models/todo_item.dart';
+import '../models/note_item.dart';
 
 // ─── Attachment model ─────────────────────────────────────────────────────────
 
@@ -61,14 +64,18 @@ class _AddOverlayState extends State<AddOverlay>
   bool _classifying = false;
   bool _recording = false;
   String? _summaryLabel;
-  List<String> _suggested = [];
+  Set<String> _selectedPages = {};
+  List<TodoCategory> _todoCategories = [];
+  List<NoteCategory> _noteCategories = [];
+  String? _selectedTodoCatId;
+  String? _selectedNoteCatId;
 
   // Keyword preview map (instant, before AI confirms)
   static const _catKW = {
     '行程': ['會議', '約', '早上', '上午', '下午', '晚上', '今天', '明天', '預約', '安排', '點開'],
     '待辦': ['要', '需要', '記得', '買', '完成', '處理', '幫', '提醒', '做', '去'],
     '靈感': ['如果', '想法', '或許', '試', '發現', '感覺', '有趣'],
-    '日記': ['上週', '上禮拜', '昨天', '今天', '感受', '可愛', '開心', '煩', '無聊', '覺得', '想到', '看到']
+    '札記': ['上週', '上禮拜', '昨天', '感受', '可愛', '開心', '煩', '無聊', '覺得', '想到', '看到']
   };
 
   @override
@@ -79,6 +86,7 @@ class _AddOverlayState extends State<AddOverlay>
     _slide = Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     _ctrl.forward();
+    _loadCategories();
   }
 
   @override
@@ -92,14 +100,20 @@ class _AddOverlayState extends State<AddOverlay>
 
   void _onTextChanged(String text) {
     if (text.length <= 4) {
-      setState(() => _suggested = []);
+      setState(() => _selectedPages = {});
       return;
     }
     final matches = _catKW.entries
         .where((e) => e.value.any((kw) => text.contains(kw)))
         .map((e) => e.key)
-        .toList();
-    setState(() => _suggested = matches.isEmpty ? [] : matches);
+        .toSet();
+    setState(() => _selectedPages = matches.isEmpty ? {} : matches);
+  }
+
+  Future<void> _loadCategories() async {
+    final todos = await DatabaseService.instance.getCategories();
+    final notes = await DatabaseService.instance.getNoteCategories();
+    // if (mounted) setState(() { _todoCategories = todos; _noteCategories = notes; });
   }
 
   // ── File picker ──────────────────────────────────────────────────────────────
@@ -207,47 +221,102 @@ class _AddOverlayState extends State<AddOverlay>
 
     setState(() { _classifying = true; _summaryLabel = null; });
 
-    // 1. Transcribe audio attachments in parallel
-    final audioAttachments = _attachments.where((a) => a.type == _AttachType.audio).toList();
-    final transcripts = await Future.wait(
-      audioAttachments.map((a) => OpenAIService.instance.transcribeAudio(a.bytes, a.name)),
-    );
+    // 1. Transcribe audio attachments in parallel; keep results indexed by
+    //    position in _attachments so we can pair them up later.
+    final transcripts = <int, String?>{};
+    final transcribeJobs = <Future<void>>[];
+    for (int i = 0; i < _attachments.length; i++) {
+      final a = _attachments[i];
+      if (a.type != _AttachType.audio) continue;
+      transcribeJobs.add(
+        OpenAIService.instance.transcribeAudio(a.bytes, a.name).then((t) {
+          transcripts[i] = t;
+        }),
+      );
+    }
+    await Future.wait(transcribeJobs);
 
-    // 2. Collect file texts
-    final fileTexts = _attachments
-        .where((a) => a.type == _AttachType.textFile)
-        .map((a) => '[檔案：${a.name}]\n${a.preExtractedText ?? ''}')
-        .toList();
+    // 2. Build the combined text the AI sees. Audio transcripts and file
+    //    texts are inlined so the model can read them; the attachment
+    //    manifest passed separately lets it map them back to notes.
+    final textParts = <String>[
+      if (hasText) _textCtrl.text.trim(),
+      for (int i = 0; i < _attachments.length; i++)
+        if (_attachments[i].type == _AttachType.audio && transcripts[i] != null)
+          '[音訊：${_attachments[i].name}] ${transcripts[i]}'
+        else if (_attachments[i].type == _AttachType.textFile)
+          '[檔案：${_attachments[i].name}]\n${_attachments[i].preExtractedText ?? ''}',
+    ];
+    final finalText = textParts.where((s) => s.isNotEmpty).join('\n\n');
 
-    // 3. Build combined text
-    final parts = [
-      _textCtrl.text.trim(),
-      ...transcripts.whereType<String>().map((t) => '[音訊] $t'),
-      ...fileTexts,
-    ].where((s) => s.isNotEmpty).toList();
-    final finalText = parts.join('\n\n');
+    // 3. Build the attachment manifest with stable indices over all
+    //    attachments (image | audio | textFile), in insertion order.
+    final attachmentMetas = <AttachmentInputMeta>[
+      for (int i = 0; i < _attachments.length; i++)
+        AttachmentInputMeta(
+          index: i,
+          name: _attachments[i].name,
+          type: switch (_attachments[i].type) {
+            _AttachType.image    => 'image',
+            _AttachType.audio    => 'audio',
+            _AttachType.textFile => 'file',
+          },
+        ),
+    ];
 
-    // 4. Encode image attachments as base64
-    final base64Images = _attachments
-        .where((a) => a.type == _AttachType.image)
-        .map((a) => base64Encode(a.bytes))
-        .toList();
+    // 4. Encode image attachments as base64 for vision input.
+    final base64Images = [
+      for (final a in _attachments)
+        if (a.type == _AttachType.image) base64Encode(a.bytes),
+    ];
 
-    // 5. Call multi-item classification
+    // 5. Call multi-item classification.
     final results = await OpenAIService.instance.classifyMultiInput(
       finalText.isNotEmpty ? finalText : null,
       base64Images: base64Images,
+      attachments: attachmentMetas,
     );
 
     if (!mounted) return;
 
-    // 6. Fire callback for each result
-    for (final r in results) {
+    // 6. Resolve attachment_indices on each ClassifiedNote into the actual
+    //    bytes/transcript so downstream dispatch can persist them.
+    final enriched = [
+      for (final r in results)
+        if (r is ClassifiedNote)
+          ClassifiedNote(
+            dateKey: r.dateKey,
+            cat: "undefined",
+            content: r.content,
+            attachmentIndices: r.attachmentIndices,
+            pendingAttachments: [
+              for (final i in r.attachmentIndices)
+                if (i >= 0 && i < _attachments.length)
+                  PendingNoteAttachment(
+                    type: switch (_attachments[i].type) {
+                      _AttachType.image    => 'image',
+                      _AttachType.audio    => 'audio',
+                      _AttachType.textFile => 'file',
+                    },
+                    filename: _attachments[i].name,
+                    bytes: _attachments[i].bytes,
+                    extracted: _attachments[i].type == _AttachType.audio
+                        ? transcripts[i]
+                        : _attachments[i].preExtractedText,
+                  ),
+            ],
+          )
+        else
+          r,
+    ];
+
+    // 7. Fire callback for each result.
+    for (final r in enriched) {
       widget.onItemClassified(r);
     }
 
-    // 7. Build summary chip
-    final summary = _buildSummary(results);
+    // 8. Build summary chip.
+    final summary = _buildSummary(enriched);
     setState(() { _classifying = false; _summaryLabel = summary; });
 
     await Future.delayed(const Duration(milliseconds: 1100));
@@ -257,7 +326,7 @@ class _AddOverlayState extends State<AddOverlay>
   String _buildSummary(List<ClassificationResult> results) {
     if (results.isEmpty) return '✓ 已儲存';
     final hasError = results.any((r) => r is ClassificationError);
-    if (hasError && results.length == 1) return '⚠ 無法分析，已儲存為筆記';
+    if (hasError && results.length == 1) return '⚠ 無法分析，已儲存為札記';
 
     int todos = 0, events = 0, ideas = 0, notes = 0, recaps = 0;
     for (final r in results) {
@@ -272,13 +341,69 @@ class _AddOverlayState extends State<AddOverlay>
     if (events > 0) parts.add('$events 行程');
     if (todos > 0) parts.add('$todos 待辦');
     if (ideas > 0) parts.add('$ideas 靈感');
-    if (notes > 0) parts.add('$notes 筆記');
+    if (notes > 0) parts.add('$notes 札記');
     if (recaps > 0) parts.add('$recaps 回顧');
     return '✓ 新增 ${parts.join('、')}';
   }
 
   void _close() {
     _ctrl.reverse().then((_) => widget.onClose());
+  }
+
+  Widget _buildPageChip(String page) {
+    final selected = _selectedPages.contains(page);
+    return GestureDetector(
+      onTap: () => setState(() {
+        if (selected) {
+          _selectedPages.remove(page);
+          if (page == '待辦') _selectedTodoCatId = null;
+          if (page == '札記') _selectedNoteCatId = null;
+        } else {
+          _selectedPages.add(page);
+        }
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.dark : AppColors.border,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Text(
+          page,
+          style: AppText.body(
+            size: 13,
+            weight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? Colors.white : AppColors.muted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubCatChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.dark.withOpacity(0.85) : AppColors.border,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: AppText.caption(
+            size: 12,
+            color: selected ? Colors.white : AppColors.dark,
+          ),
+        ),
+      ),
+    );
   }
 
   // ── UI ────────────────────────────────────────────────────────────────────────
@@ -372,19 +497,69 @@ class _AddOverlayState extends State<AddOverlay>
                 ),
 
                 // ── Keyword preview badges ───────────────────────────────────
-                if (_suggested.isNotEmpty && !_classifying && _summaryLabel == null) ...[
-                  const SizedBox(height: 14),
-                  Text('預測分類', style: AppText.caption(size: 11, letterSpacing: 0.6)),
+                // if (_suggested.isNotEmpty && !_classifying && _summaryLabel == null) ...[
+                //   const SizedBox(height: 14),
+                //   Text('預測分類', style: AppText.caption(size: 11, letterSpacing: 0.6)),
+                //   const SizedBox(height: 6),
+                //   Wrap(
+                //     spacing: 8,
+                //     children: _suggested.map((s) => Container(
+                //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                //       decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(14)),
+                //       child: Text(s, style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.dark)),
+                //     )).toList(),
+                //   ),
+                // ],
+
+                
+                // ── Page type selection (line 1) ─────────────────────────────
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: ['行程', '待辦', '靈感', '札記']
+                      .map(_buildPageChip)
+                      .toList(),
+                ),
+
+                // ── Sub-category selection (line 2) ──────────────────────────
+                if (_selectedPages.contains('待辦') && _todoCategories.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text('待辦分類', style: AppText.caption(size: 11, letterSpacing: 0.6)),
                   const SizedBox(height: 6),
                   Wrap(
-                    spacing: 8,
-                    children: _suggested.map((s) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(14)),
-                      child: Text(s, style: AppText.body(size: 13, weight: FontWeight.w500, color: AppColors.dark)),
-                    )).toList(),
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _todoCategories
+                        .map((c) => _buildSubCatChip(
+                              label: c.name,
+                              selected: _selectedTodoCatId == c.id.toString(),
+                              onTap: () => setState(() => _selectedTodoCatId =
+                                  _selectedTodoCatId == c.id.toString()
+                                      ? null
+                                      : c.id.toString()),
+                            ))
+                        .toList(),
                   ),
                 ],
+                if (_selectedPages.contains('札記') && _noteCategories.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text('札記分類', style: AppText.caption(size: 11, letterSpacing: 0.6)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _noteCategories
+                        .map((c) => _buildSubCatChip(
+                              label: c.label,
+                              selected: _selectedNoteCatId == c.id,
+                              onTap: () => setState(() => _selectedNoteCatId =
+                                  _selectedNoteCatId == c.id ? null : c.id),
+                            ))
+                        .toList(),
+                  ),
+                ],
+                const SizedBox(height: 6),
 
                 // ── Recording indicator ──────────────────────────────────────
                 if (_recording) ...[
@@ -443,19 +618,21 @@ class _AddOverlayState extends State<AddOverlay>
                     const SizedBox(width: 10),
 
                     // Upload / file picker button
-                    _ActionBtn(
-                      icon: LucideIcons.paperclip,
-                      onTap: _classifying ? null : _pickFile,
-                    ),
-                    const SizedBox(width: 10),
+                    if (!kIsWeb) ...[
+                      _ActionBtn(
+                        icon: LucideIcons.paperclip,
+                        onTap: _classifying ? null : _pickFile,
+                      ),
+                      const SizedBox(width: 10),
 
-                    // Mic / stop button
-                    _ActionBtn(
-                      icon: _recording ? LucideIcons.squareSlash : LucideIcons.mic,
-                      iconColor: _recording ? AppColors.rose : null,
-                      borderColor: _recording ? AppColors.rose.withOpacity(0.4) : null,
-                      onTap: _classifying ? null : _toggleRecording,
-                    ),
+                      // Mic / stop button
+                      _ActionBtn(
+                        icon: _recording ? LucideIcons.squareSlash : LucideIcons.mic,
+                        iconColor: _recording ? AppColors.rose : null,
+                        borderColor: _recording ? AppColors.rose.withOpacity(0.4) : null,
+                        onTap: _classifying ? null : _toggleRecording,
+                      ),
+                    ]
                   ],
                 ),
               ],

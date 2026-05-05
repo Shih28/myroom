@@ -9,6 +9,7 @@ import '../models/ai_resource.dart';
 import '../models/note_item.dart';
 import '../models/recap_item.dart';
 import '../data/seed_data.dart';
+import 'attachment_storage.dart';
 
 // ─── Simple ChatMessage model (used only by DatabaseService) ─────────────────
 class DbChatMessage {
@@ -120,6 +121,18 @@ class DatabaseService {
     ''');
 
     await db.execute('''
+      CREATE TABLE note_attachments (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        note_id     INTEGER NOT NULL,
+        type        TEXT    NOT NULL,
+        filename    TEXT    NOT NULL,
+        rel_path    TEXT    NOT NULL,
+        extracted   TEXT,
+        created_at  INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE recap_items (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
         era              TEXT    NOT NULL,
@@ -154,9 +167,10 @@ class DatabaseService {
 
     await db.execute('''
       CREATE TABLE user_profile (
-        id              INTEGER PRIMARY KEY DEFAULT 1,
-        self_intro      TEXT    NOT NULL DEFAULT '',
-        ai_instructions TEXT    NOT NULL DEFAULT ''
+        id                INTEGER PRIMARY KEY DEFAULT 1,
+        self_intro        TEXT    NOT NULL DEFAULT '',
+        ai_instructions   TEXT    NOT NULL DEFAULT '',
+        ai_enrich_enabled INTEGER NOT NULL DEFAULT 1
       )
     ''');
 
@@ -202,8 +216,13 @@ class DatabaseService {
     }
 
     for (final i in SeedData.initIdeas) {
+      final linksJson = i.links.isEmpty
+          ? null
+          : jsonEncode(i.links.map((l) => {'title': l.title, 'url': l.url}).toList());
       await db.insert('ideas', {
         'text': i.text,
+        'ai_summary': i.aiSummary,
+        'links': linksJson,
         'created_at': now,
       });
     }
@@ -465,7 +484,7 @@ class DatabaseService {
     }).toList();
   }
 
-  Future<void> updateIdeaAiResult(int id, String aiSummary, String linksJson) async {
+  Future<void> updateIdeaAiResult(int id, String aiSummary, String? linksJson) async {
     final database = await db;
     await database.update(
       'ideas',
@@ -481,6 +500,18 @@ class DatabaseService {
       'text': text,
       'created_at': DateTime.now().millisecondsSinceEpoch,
     });
+  }
+
+  /// Updates an idea's text and clears its AI summary + links so the caller
+  /// can re-trigger enrichment.
+  Future<void> updateIdeaText(int id, String text) async {
+    final database = await db;
+    await database.update(
+      'ideas',
+      {'text': text, 'ai_summary': null, 'links': null},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int> deleteIdea(int id) async {
@@ -655,9 +686,33 @@ class DatabaseService {
     return count > 0;
   }
 
-  /// Deletes any note by id. Returns the number of rows deleted.
+  /// Updates an existing note's content and bumps `updated_at`.
+  Future<void> updateNoteContent(int id, String content, {String? cat}) async {
+    final database = await db;
+    Map<String, Object?> values = {'content': content, 'updated_at': DateTime.now().millisecondsSinceEpoch};
+    if (cat != null) values['cat_id'] = cat;
+    await database.update(
+      'notes',
+      values,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// Deletes any note by id along with its attachments (rows + on-disk files).
+  /// Returns the number of note rows deleted.
   Future<int> deleteNote(int id) async {
     final database = await db;
+    final attRows = await database.query(
+      'note_attachments',
+      columns: ['rel_path'],
+      where: 'note_id = ?',
+      whereArgs: [id],
+    );
+    for (final r in attRows) {
+      await AttachmentStorage.instance.delete(r['rel_path'] as String);
+    }
+    await database.delete('note_attachments', where: 'note_id = ?', whereArgs: [id]);
     return database.delete('notes', where: 'id = ?', whereArgs: [id]);
   }
 
@@ -667,6 +722,63 @@ class DatabaseService {
     content: r['content'] as String,
     catId: r['cat_id'] as String?,
     updatedAt: r['updated_at'] as int,
+  );
+
+  // ─── NOTE ATTACHMENTS ──────────────────────────────────────────────────────
+
+  Future<List<NoteAttachment>> getNoteAttachments(int noteId) async {
+    final database = await db;
+    final rows = await database.query(
+      'note_attachments',
+      where: 'note_id = ?',
+      whereArgs: [noteId],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map(_rowToAttachment).toList();
+  }
+
+  Future<int> insertNoteAttachment({
+    required int noteId,
+    required NoteAttachmentType type,
+    required String filename,
+    required String relPath,
+    String? extracted,
+  }) async {
+    final database = await db;
+    return database.insert('note_attachments', {
+      'note_id': noteId,
+      'type': NoteAttachment.typeName(type),
+      'filename': filename,
+      'rel_path': relPath,
+      'extracted': extracted,
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    });
+  }
+
+  /// Deletes a single attachment row + its on-disk file.
+  Future<void> deleteNoteAttachment(int id) async {
+    final database = await db;
+    final rows = await database.query(
+      'note_attachments',
+      columns: ['rel_path'],
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      await AttachmentStorage.instance.delete(rows.first['rel_path'] as String);
+    }
+    await database.delete('note_attachments', where: 'id = ?', whereArgs: [id]);
+  }
+
+  NoteAttachment _rowToAttachment(Map<String, dynamic> r) => NoteAttachment(
+    id: r['id'] as int,
+    noteId: r['note_id'] as int,
+    type: NoteAttachment.parseType(r['type'] as String),
+    filename: r['filename'] as String,
+    relPath: r['rel_path'] as String,
+    extracted: r['extracted'] as String?,
+    createdAt: r['created_at'] as int,
   );
 
   // ─── NOTE CATEGORIES ───────────────────────────────────────────────────────
@@ -801,7 +913,7 @@ class DatabaseService {
 
   // ─── USER PROFILE ──────────────────────────────────────────────────────────
 
-  Future<({String selfIntro, String aiInstructions})> getUserProfile() async {
+  Future<({String selfIntro, String aiInstructions, int aiEnrichEnabled})> getUserProfile() async {
     final database = await db;
     final rows = await database.query(
       'user_profile',
@@ -809,18 +921,19 @@ class DatabaseService {
       whereArgs: [1],
       limit: 1,
     );
-    if (rows.isEmpty) return (selfIntro: '', aiInstructions: '');
+    if (rows.isEmpty) return (selfIntro: '', aiInstructions: '', aiEnrichEnabled: 1);
     return (
       selfIntro: rows.first['self_intro'] as String? ?? '',
       aiInstructions: rows.first['ai_instructions'] as String? ?? '',
+      aiEnrichEnabled: rows.first['ai_enrich_enabled'] as int? ?? 1
     );
   }
 
-  Future<void> saveUserProfile(String selfIntro, String aiInstructions) async {
+  Future<void> saveUserProfile(String selfIntro, String aiInstructions, int aiEnrichEnabled) async {
     final database = await db;
     await database.insert(
       'user_profile',
-      {'id': 1, 'self_intro': selfIntro, 'ai_instructions': aiInstructions},
+      {'id': 1, 'self_intro': selfIntro, 'ai_instructions': aiInstructions, 'ai_enrich_enabled': aiEnrichEnabled},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }

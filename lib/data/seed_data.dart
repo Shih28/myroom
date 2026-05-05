@@ -39,12 +39,12 @@ const kResources = [
 
 class SeedData {
   static List<CalendarEvent> get initEvents => [
-    const CalendarEvent(id: 1, title: '週組會議', startYear: 2026, startMonth: 4, startDay: 24, startHour: 9, startMin: 0, endYear: 2026, endMonth: 4, endDay: 24, endHour: 10, endMin: 0, color: AppColors.sage),
-    const CalendarEvent(id: 2, title: '英文課', startYear: 2026, startMonth: 4, startDay: 24, startHour: 14, startMin: 0, endYear: 2026, endMonth: 4, endDay: 24, endHour: 15, endMin: 30, color: AppColors.amber),
-    const CalendarEvent(id: 3, title: '讀書計畫', startYear: 2026, startMonth: 4, startDay: 25, startHour: 20, startMin: 0, endYear: 2026, endMonth: 4, endDay: 25, endHour: 21, endMin: 0, color: AppColors.blue),
-    const CalendarEvent(id: 4, title: '健身房', startYear: 2026, startMonth: 4, startDay: 26, startHour: 7, startMin: 30, endYear: 2026, endMonth: 4, endDay: 26, endHour: 8, endMin: 30, color: AppColors.rose),
-    const CalendarEvent(id: 5, title: '專案截止', startYear: 2026, startMonth: 4, startDay: 28, startHour: 18, startMin: 0, endYear: 2026, endMonth: 4, endDay: 28, endHour: 18, endMin: 30, color: AppColors.amber),
-    const CalendarEvent(id: 6, title: '團隊活動', startYear: 2026, startMonth: 4, startDay: 22, startHour: 0, startMin: 0, endYear: 2026, endMonth: 4, endDay: 24, endHour: 23, endMin: 59, color: AppColors.blue, allDay: true),
+    const CalendarEvent(id: 1, title: '週組會議', startYear: 2026, startMonth: 5, startDay: 9, startHour: 9, startMin: 0, endYear: 2026, endMonth: 5, endDay: 9, endHour: 10, endMin: 0, color: AppColors.sage),
+    const CalendarEvent(id: 2, title: '英文課', startYear: 2026, startMonth: 5, startDay: 9, startHour: 14, startMin: 0, endYear: 2026, endMonth: 5, endDay: 9, endHour: 15, endMin: 30, color: AppColors.amber),
+    const CalendarEvent(id: 3, title: '讀書計畫', startYear: 2026, startMonth: 5, startDay: 10, startHour: 20, startMin: 0, endYear: 2026, endMonth: 5, endDay: 10, endHour: 21, endMin: 0, color: AppColors.blue),
+    const CalendarEvent(id: 4, title: '健身房', startYear: 2026, startMonth: 5, startDay: 11, startHour: 7, startMin: 30, endYear: 2026, endMonth: 5, endDay: 11, endHour: 8, endMin: 30, color: AppColors.rose),
+    const CalendarEvent(id: 5, title: '專案截止', startYear: 2026, startMonth: 5, startDay: 13, startHour: 18, startMin: 0, endYear: 2026, endMonth: 5, endDay: 13, endHour: 18, endMin: 30, color: AppColors.amber),
+    const CalendarEvent(id: 6, title: '團隊活動', startYear: 2026, startMonth: 5, startDay: 7, startHour: 0, startMin: 0, endYear: 2026, endMonth: 5, endDay: 9, endHour: 23, endMin: 59, color: AppColors.blue, allDay: true),
   ];
 
   static List<TodoCategory> get initCategories => [
@@ -64,9 +64,33 @@ class SeedData {
   ];
 
   static List<Idea> get initIdeas => [
-    const Idea(id: 1, text: '用 AI 自動整理待辦事項優先順序'),
-    const Idea(id: 2, text: '為每週習慣設計視覺化熱力圖'),
-    const Idea(id: 3, text: '靜心日記與情緒追蹤整合'),
+    const Idea(
+      id: 1,
+      text: '用 AI 自動整理待辦事項優先順序',
+      aiSummary: '結合任務截止日期、標籤與歷史完成模式，自動評估緊迫性與重要性並動態排序，降低決策疲勞。',
+      links: [
+        IdeaLink(title: 'Eisenhower Matrix 優先級框架', url: 'https://todoist.com/productivity-methods/eisenhower-matrix'),
+        IdeaLink(title: 'AI in Personal Productivity — HBR', url: 'https://hbr.org/topic/subject/time-management'),
+      ],
+    ),
+    const Idea(
+      id: 2,
+      text: '為每週習慣設計視覺化熱力圖',
+      aiSummary: '用類 GitHub Contribution Graph 的色塊呈現每週習慣完成率，強化成就感並維持長期動力。',
+      links: [
+        IdeaLink(title: 'Cal-Heatmap — 日曆熱力圖函式庫', url: 'https://cal-heatmap.com'),
+        IdeaLink(title: 'Habit Tracking with D3.js', url: 'https://observablehq.com/@d3/calendar'),
+      ],
+    ),
+    const Idea(
+      id: 3,
+      text: '靜心日記與情緒追蹤整合',
+      aiSummary: '長期分析找出週期性低落規律與潛在觸發因素，建立更深的自我覺察與心理韌性。',
+      links: [
+        IdeaLink(title: 'The Science of Journaling', url: 'https://positivepsychology.com/journaling/'),
+        IdeaLink(title: 'Mood Tracking — Psychology Today', url: 'https://www.psychologytoday.com/us/basics/journaling'),
+      ],
+    ),
   ];
 
   static List<NoteCategory> get initNoteCategories => [
@@ -76,9 +100,9 @@ class SeedData {
   ];
 
   static List<NoteItem> get initNotes => [
-    NoteItem(id: 0, dateKey: '2026-04-20', content: '整理了 Figma 設計系統的規範，顏色與字型層級...', catId: 'academic', updatedAt: -1),
-    NoteItem(id: 1, dateKey: '2026-04-12', content: '讀了關於認知負荷理論的章節，對 UI 設計很有啟發...', catId: 'academic', updatedAt: -1),
-    NoteItem(id: 2, dateKey: '2026-04-10', content: '今天游了800公尺，比上次進步，換氣節奏更穩了...', catId: 'sport', updatedAt: -1),
+    NoteItem(id: 0, dateKey: '2026-05-01', content: '整理了 Figma 設計系統的規範，顏色與字型層級...', catId: 'academic', updatedAt: -1),
+    NoteItem(id: 1, dateKey: '2026-05-04', content: '讀了關於認知負荷理論的章節，對 UI 設計很有啟發...', catId: 'academic', updatedAt: -1),
+    NoteItem(id: 2, dateKey: '2026-04-28', content: '今天游了800公尺，比上次進步，換氣節奏更穩了...', catId: 'sport', updatedAt: -1),
     NoteItem(id: 3, dateKey: '2026-04-22', content: '今天完成了設計原型的第一版，花了比預期更多的時間在細節上。顏色系統和字型搭配反覆調整，最終找到了一個感覺「對」的組合。\n\n下一步要開始考慮互動動畫，讓整體體驗更流暢。', catId: 'academic', updatedAt: -1),
   ];
 

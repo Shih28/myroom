@@ -54,7 +54,51 @@ class ClassifiedIdea extends ClassificationResult {
 class ClassifiedNote extends ClassificationResult {
   final String dateKey; // YYYY-MM-DD
   final String content;
-  ClassifiedNote({required this.dateKey, required this.content});
+  final String cat;
+
+  /// Indices into the `attachments` list passed to [OpenAIService.classifyMultiInput]
+  /// that the AI mapped to this note. Empty when no attachments were provided.
+  final List<int> attachmentIndices;
+
+  /// Resolved attachment payloads, populated by the caller (e.g. add_overlay)
+  /// after classification using [attachmentIndices]. Stored on the result so
+  /// downstream dispatch (main.dart) can persist them with the note.
+  final List<PendingNoteAttachment> pendingAttachments;
+
+  ClassifiedNote({
+    required this.dateKey,
+    required this.cat,
+    required this.content,
+    this.attachmentIndices = const [],
+    this.pendingAttachments = const [],
+  });
+}
+
+/// Metadata about an attachment provided to the classifier so the AI can
+/// reference it by index when emitting a note.
+class AttachmentInputMeta {
+  final int index;
+  final String name;
+  final String type; // 'image' | 'audio' | 'file'
+  const AttachmentInputMeta({
+    required this.index,
+    required this.name,
+    required this.type,
+  });
+}
+
+/// An attachment payload ready to persist alongside a freshly created note.
+class PendingNoteAttachment {
+  final String type; // 'image' | 'audio' | 'file'
+  final String filename;
+  final Uint8List bytes;
+  final String? extracted; // transcript (audio) or extracted text (file/pdf)
+  const PendingNoteAttachment({
+    required this.type,
+    required this.filename,
+    required this.bytes,
+    this.extracted,
+  });
 }
 
 class ClassifiedRecap extends ClassificationResult {
@@ -674,18 +718,23 @@ class OpenAIService {
       '回傳格式（嚴格 JSON，不含其他文字）：{"items":[...]}\n\n'
       '每個 item 的結構：\n'
       '- todo: {"type":"todo","text":"...","cat":"..."}\n'
-      '- todo_with_time: {"type":"todo_with_time","text":"...","cat":"...",\n'
+      '- todo_with_time: {"type":"todo_with_time","text":"...",\n'
       '    "start_year":YYYY,"start_month":MM,"start_day":N,"start_hour":N,"start_min":N,\n'
       '    "end_year":YYYY,  "end_month":MM,  "end_day":N,  "end_hour":N,  "end_min":N}\n'
       '  （若沒有明確結束時間，預設 start+1 小時；start_year/start_month 若未跨月可省略，預設當月）\n'
       '- idea: {"type":"idea","text":"..."}\n'
-      '- note: {"type":"note","date_key":"YYYY-MM-DD","content":"..."}\n'
+      '- note: {"type":"note","date_key":"YYYY-MM-DD","note_cat":"...,"content":"...","attachment_indices":[i,...]}\n'
       '- recap: {"type":"recap","era":"past|now|future","title":"...","desc":"...","date":"..."}\n\n'
       '特別說明：\n'
       '- todo 代表未指定時間的事項，例如「找個時間去買蘋果」\n'
       '- todo_with_time 代表有明確時間的事項\n'
       '- idea 紀錄突然非任務性、突然冒出的想法或想做的事情\n'
-      '- note 紀錄各類成就、情緒、對於某件事物的評論，通常是完整句子\n\n'
+      '- note 紀錄各類成就、情緒、對於某件事物的評論，通常是完整句子\n'
+      '- 若使用者提供了附件清單（attachments），每個附件都會以 [i:type:name] 標示其索引（i 從 0 開始）。\n'
+      '  將每個附件分配給最相關的「note」項目，於該 item 的 attachment_indices 中列出對應索引。\n'
+      '  attachment_indices 僅可出現在 type=="note" 的 item 上；其他類型不可使用此欄位。\n'
+      '  每個附件索引最多只能出現在一個 note 中；若一段輸入只產生一個 note，所有附件都歸於它；\n'
+      '  若沒有附件或沒有 note，attachment_indices 應為空陣列。\n\n'
       '規則：\n'
       '- 只回傳 JSON，不含其他文字\n'
       '- 每個拆解出來的事項「只能對應一個 item」\n'
@@ -697,10 +746,17 @@ class OpenAIService {
 
   /// Classifies [text] (plus optional images / file text) into potentially
   /// multiple items. Images must be base64-encoded JPEG/PNG strings.
+  ///
+  /// [attachments] describes every binary attachment passed in (image, audio,
+  /// file) in a stable order so the AI can map them to ClassifiedNote items
+  /// via `attachment_indices`. The order of indices matches caller-side order;
+  /// images are not implicitly part of [attachments] — supply an entry for
+  /// each image as well if you want it mappable.
   Future<List<ClassificationResult>> classifyMultiInput(
     String? text, {
     List<String> base64Images = const [],
     String? fileText,
+    List<AttachmentInputMeta> attachments = const [],
   }) async {
     assert(
       AppConfig.openAiApiKey != 'sk-YOUR_KEY_HERE',
@@ -715,11 +771,22 @@ class OpenAIService {
 
     final today = _todayStr();
     final categories = await DatabaseService.instance.getCategories();
-    final systemContent = '$_multiClassifySystemPrompt\n今天日期：$today\n- cat只能是：${categories.map((c) => c.name).join('|')}';
+    final noteCategories = await DatabaseService.instance.getNoteCategories();
+    final systemContent = '$_multiClassifySystemPrompt\n今天日期：$today\n- cat只能是：${categories.map((c) => c.name).join('|')}\n- note_cat只能是：${noteCategories.map((nc) => nc.id).join('|')}';
+
+    // Build the text payload — append a manifest of attachments so the model
+    // can reference them by index in `attachment_indices`.
+    final textWithManifest = StringBuffer(rawInput);
+    if (attachments.isNotEmpty) {
+      textWithManifest.write('\n\n附件清單（請依索引將其分配給最相關的 note）：\n');
+      for (final a in attachments) {
+        textWithManifest.write('[${a.index}:${a.type}:${a.name}]\n');
+      }
+    }
 
     // Build user message content: text part + optional image parts
     final List<Map<String, dynamic>> userContent = [
-      {'type': 'text', 'text': rawInput},
+      {'type': 'text', 'text': textWithManifest.toString()},
       for (final b64 in base64Images)
         {
           'type': 'image_url',
@@ -759,14 +826,58 @@ class OpenAIService {
       final rawItems = j['items'] as List? ?? [];
 
       if (rawItems.isEmpty) {
-        return [ClassifiedNote(dateKey: today, content: combinedText.isNotEmpty ? combinedText : rawInput)];
+        // No items returned: synthesize a single note that owns every
+        // attachment so the caller doesn't lose them.
+        return [
+          ClassifiedNote(
+            dateKey: today,
+            cat: "undefined",
+            content: combinedText.isNotEmpty ? combinedText : rawInput,
+            attachmentIndices: [for (final a in attachments) a.index],
+          ),
+        ];
       }
 
-
+      final attachmentCount = attachments.length;
       List<ClassificationResult> results = [];
       for (var item in rawItems) {
-        ClassificationResult result = await _parseSingleItem(item as Map<String, dynamic>, combinedText);
+        ClassificationResult result = await _parseSingleItem(
+          item as Map<String, dynamic>,
+          combinedText,
+          attachmentCount,
+        );
         results.add(result);
+      }
+
+      // Safety net: if the AI returned attachments but assigned none to any
+      // note, attach them all to the first note (or synthesize one).
+      if (attachmentCount > 0) {
+        final assigned = <int>{};
+        for (final r in results) {
+          if (r is ClassifiedNote) assigned.addAll(r.attachmentIndices);
+        }
+        final unassigned = [
+          for (final a in attachments) if (!assigned.contains(a.index)) a.index,
+        ];
+        if (unassigned.isNotEmpty) {
+          final firstIdx = results.indexWhere((r) => r is ClassifiedNote);
+          if (firstIdx >= 0) {
+            final n = results[firstIdx] as ClassifiedNote;
+            results[firstIdx] = ClassifiedNote(
+              dateKey: n.dateKey,
+              cat: "undefined",
+              content: n.content,
+              attachmentIndices: [...n.attachmentIndices, ...unassigned],
+            );
+          } else {
+            results.add(ClassifiedNote(
+              dateKey: today,
+              cat: "undefined",
+              content: combinedText.isNotEmpty ? combinedText : rawInput,
+              attachmentIndices: unassigned,
+            ));
+          }
+        }
       }
 
       return results;
@@ -782,12 +893,28 @@ class OpenAIService {
     }
   }
 
-  Future<ClassificationResult> _parseSingleItem(Map<String, dynamic> j, String rawText) async {
+  Future<ClassificationResult> _parseSingleItem(
+    Map<String, dynamic> j,
+    String rawText,
+    int attachmentCount,
+  ) async {
     final type = j['type'] as String? ?? '';
     final validCat = await DatabaseService.instance.getCategories();
     String safecat(dynamic v) {
       final s = v as String? ?? '';
       return validCat.map((c) => c.name).contains(s) ? s : validCat.isEmpty ? validCat[0].name : '';
+    }
+
+    List<int> parseIndices(dynamic raw) {
+      if (raw is! List) return const [];
+      final seen = <int>{};
+      for (final v in raw) {
+        if (v is num) {
+          final i = v.toInt();
+          if (i >= 0 && i < attachmentCount) seen.add(i);
+        }
+      }
+      return seen.toList()..sort();
     }
 
     switch (type) {
@@ -816,7 +943,9 @@ class OpenAIService {
       case 'note':
         return ClassifiedNote(
           dateKey: j['date_key'] as String? ?? _todayStr(),
+          cat: j['note_cat'] as String? ?? '',
           content: j['content'] as String? ?? rawText,
+          attachmentIndices: parseIndices(j['attachment_indices']),
         );
       case 'recap':
         final eraStr = j['era'] as String? ?? 'now';
@@ -828,7 +957,7 @@ class OpenAIService {
           date: j['date'] as String? ?? _todayStr(),
         );
       default:
-        return ClassifiedNote(dateKey: _todayStr(), content: rawText);
+        return ClassifiedNote(dateKey: _todayStr(), cat: "undefined", content: rawText);
     }
   }
 

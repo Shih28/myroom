@@ -15,6 +15,7 @@ class _SettingPageState extends State<SettingPage> {
   final _introCtrl = TextEditingController();
   final _instCtrl  = TextEditingController();
   bool _loaded = false;
+  bool _autoEnrichIdea = true;
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _SettingPageState extends State<SettingPage> {
     setState(() {
       _introCtrl.text = profile.selfIntro;
       _instCtrl.text  = profile.aiInstructions;
+      _autoEnrichIdea = profile.aiEnrichEnabled == 1 ? true : false;
       _loaded = true;
     });
   }
@@ -36,6 +38,7 @@ class _SettingPageState extends State<SettingPage> {
     await DatabaseService.instance.saveUserProfile(
       _introCtrl.text.trim(),
       _instCtrl.text.trim(),
+      _autoEnrichIdea ? 1 : 0,
     );
   }
 
@@ -144,6 +147,47 @@ class _SettingPageState extends State<SettingPage> {
                         Text(
                           '非必填。留白則使用預設的簡潔友善語氣。',
                           style: AppText.caption(size: 11),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── AI features ───────────────────────────────────
+                        _SectionLabel(label: 'AI 功能', icon: LucideIcons.bot),
+                        const SizedBox(height: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.border),
+                            boxShadow: const [kCardShadow],
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '自動分析靈感',
+                                      style: AppText.body(size: 14, weight: FontWeight.w500),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '在靈感頁面，AI 將自動補充想法的細節與延伸。',
+                                      style: AppText.caption(size: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: _autoEnrichIdea,
+                                onChanged: (v) => setState(() {
+                                  _autoEnrichIdea = v;
+                                }),
+                                activeColor: AppColors.dark,
+                              ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 36),
 

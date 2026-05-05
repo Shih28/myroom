@@ -8,10 +8,12 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'theme.dart';
 import 'models/event.dart';
+import 'models/note_item.dart';
 import 'models/todo_item.dart';
 import 'models/idea.dart';
 import 'models/recap_item.dart';
 import 'data/seed_data.dart' show kCatColors, kDow, todayKey;
+import 'services/attachment_storage.dart';
 import 'services/database_service.dart';
 import 'services/openai_service.dart';
 import 'widgets/mr_icon_button.dart';
@@ -24,6 +26,7 @@ import 'pages/recap_page.dart';
 import 'pages/setting_page.dart';
 import 'overlays/add_overlay.dart';
 import 'overlays/ai_chat_overlay.dart';
+import 'overlays/tutorial_overlay.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,7 +62,7 @@ class MyRoomApp extends StatelessWidget {
   }
 }
 
-enum _Overlay { none, add, ai }
+enum _Overlay { none, add, ai, tutorial }
 
 class MyRoomShell extends StatefulWidget {
   const MyRoomShell({super.key});
@@ -113,6 +116,7 @@ class _MyRoomShellState extends State<MyRoomShell> {
       _categories  = results[4] as List<TodoCategory>;
       _recapItems  = results[5] as List<RecapItem>;
       _loaded = true;
+      _overlay = _Overlay.tutorial;
     });
   }
 
@@ -185,12 +189,19 @@ class _MyRoomShellState extends State<MyRoomShell> {
     if (mounted) setState(() => _ideas = updated);
 
     // AI enrichment — card shows "AI 分析中..." until this completes
-    final enrichment = await OpenAIService.instance.enrichIdea(text);
-    if (enrichment != null) {
-      final linksJson = jsonEncode(
-        enrichment.links.map((l) => {'title': l.title, 'url': l.url}).toList(),
-      );
-      await db.updateIdeaAiResult(id, enrichment.summary, linksJson);
+    final profile = await db.getUserProfile();
+    if (profile.aiEnrichEnabled == 0) {
+      await db.updateIdeaAiResult(id, 'disabled', '使用者已停用此AI功能');
+    } else {
+      final enrichment = await OpenAIService.instance.enrichIdea(text);
+      if (enrichment != null) {
+        final linksJson = jsonEncode(
+          enrichment.links.map((l) => {'title': l.title, 'url': l.url}).toList(),
+        );
+        await db.updateIdeaAiResult(id, enrichment.summary, linksJson);
+      } else {
+        await db.updateIdeaAiResult(id, '分析失敗，請稍後再試', null);
+      }
     }
 
     updated = await db.getIdeas();
@@ -203,9 +214,43 @@ class _MyRoomShellState extends State<MyRoomShell> {
     if (mounted) setState(() => _ideas = updated);
   }
 
+  Future<void> _onIdeaEdited(int id, String text) async {
+    final db = DatabaseService.instance;
+
+    // Clear AI fields and update text — UI will show "AI 分析中…" again.
+    await db.updateIdeaText(id, text);
+    var updated = await db.getIdeas();
+    if (mounted) setState(() => _ideas = updated);
+
+    final profile = await db.getUserProfile();
+    if (profile.aiEnrichEnabled == 0) {
+      await db.updateIdeaAiResult(id, '使用者已停用此AI功能', null);
+    } else {
+      // Re-run enrichment with the new text.
+      final enrichment = await OpenAIService.instance.enrichIdea(text);
+      if (enrichment != null) {
+        final linksJson = jsonEncode(
+          enrichment.links.map((l) => {'title': l.title, 'url': l.url}).toList(),
+        );
+        await db.updateIdeaAiResult(id, enrichment.summary, linksJson);
+      } else {
+        await db.updateIdeaAiResult(id, '分析失敗，請稍後再試', null);
+      }
+    }
+
+    updated = await db.getIdeas();
+    if (mounted) setState(() => _ideas = updated);
+  }
+
   Future<void> _onNotesMutated() async {
     final updated = await DatabaseService.instance.getNotes();
     if (mounted) setState(() => _notes = updated);
+  }
+
+  String _extOf(String filename) {
+    final dot = filename.lastIndexOf('.');
+    if (dot < 0 || dot == filename.length - 1) return '';
+    return filename.substring(dot + 1).toLowerCase();
   }
 
   // Fire-and-forget: classify a newly inserted note into a user category.
@@ -253,9 +298,26 @@ class _MyRoomShellState extends State<MyRoomShell> {
 
       case ClassifiedNote():
         final id = await db.upsertNote(r.dateKey, r.content);
+        if (id > 0) {
+          if (!kIsWeb) {
+            for (final a in r.pendingAttachments) {
+              final relPath = await AttachmentStorage.instance.save(
+                a.bytes,
+                _extOf(a.filename),
+              );
+              await db.insertNoteAttachment(
+                noteId: id,
+                type: NoteAttachment.parseType(a.type),
+                filename: a.filename,
+                relPath: relPath,
+                extracted: a.extracted,
+              );
+            }
+          }
+          _classifyInsertedNote(id, r.content);
+        }
         final notes = await db.getNotes();
         if (mounted) setState(() => _notes = notes);
-        if (id > 0) _classifyInsertedNote(id, r.content);
 
       case ClassifiedRecap():
         await db.insertRecapItem(RecapItem(
@@ -277,7 +339,7 @@ class _MyRoomShellState extends State<MyRoomShell> {
     }
   }
 
-  static const _pageTitles = ['行事曆', '待辦', '靈感', '札記', '回顧'];
+  static const _pageTitles = ['行事曆', '待辦', '靈感', '札記', '成就'];
 
   Widget _buildTopBar() {
     return Padding(
@@ -386,8 +448,13 @@ class _MyRoomShellState extends State<MyRoomShell> {
                           onCategoryAdded: _onCategoryAdded,
                           onCategoryDeleted: _onCategoryDeleted,
                         )),
-                        _KeepAlive(child: IdeaPage(ideas: _ideas, onIdeaAdded: _onIdeaAdded, onIdeaDeleted: _onIdeaDeleted)),
-                        _KeepAlive(child: NotePage(notes: _notes, onNotesMutated: _onNotesMutated)),
+                        IdeaPage(
+                          ideas: _ideas,
+                          onIdeaAdded: _onIdeaAdded,
+                          onIdeaDeleted: _onIdeaDeleted,
+                          onIdeaEdited: _onIdeaEdited,
+                        ),
+                        NotePage(notes: _notes, onNotesMutated: _onNotesMutated),
                         _KeepAlive(child: RecapPage(
                           todos: _todos,
                           events: _events,
@@ -414,6 +481,11 @@ class _MyRoomShellState extends State<MyRoomShell> {
               ),
             
             
+            if (_overlay == _Overlay.tutorial)
+              TutorialOverlay(
+                onDone: () => setState(() => _overlay = _Overlay.none),
+              ),
+
             if (_overlay == _Overlay.none)
               Positioned(
                 bottom: 22, left: 20, right: 20,

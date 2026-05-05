@@ -1,6 +1,6 @@
 class AiResource {
   final String title;
-  final String type; // 書籍 | 文章 | 工具 | 課程 | 網站
+  final String type;
   final String desc;
   final String url;
 

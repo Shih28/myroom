@@ -9,6 +9,7 @@ import '../models/ai_resource.dart';
 import '../services/openai_service.dart';
 import '../services/database_service.dart';
 import '../widgets/mr_card.dart';
+import '../widgets/mr_icon_button.dart';
 
 enum IdeaSub { input, explore }
 
@@ -16,12 +17,14 @@ class IdeaPage extends StatefulWidget {
   final List<Idea> ideas;
   final Future<void> Function(String) onIdeaAdded;
   final Future<void> Function(int id) onIdeaDeleted;
+  final Future<void> Function(int id, String text) onIdeaEdited;
 
   const IdeaPage({
     super.key,
     required this.ideas,
     required this.onIdeaAdded,
     required this.onIdeaDeleted,
+    required this.onIdeaEdited,
   });
 
   @override
@@ -72,8 +75,90 @@ class _IdeaPageState extends State<IdeaPage> {
   }
 
   Future<void> _deleteIdea(int id) async {
-    setState(() => _expandedIds.remove(id));
-    await widget.onIdeaDeleted(id);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('刪除靈感', style: AppText.body(size: 16, weight: FontWeight.w600)),
+        content: Text(
+          '確定刪除這份靈感？',
+          style: AppText.body(size: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              '刪除',
+              style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.rose),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _expandedIds.remove(id));
+      await widget.onIdeaDeleted(id);
+    }
+  }
+
+  Future<void> _editIdea(Idea idea) async {
+    final ctrl = TextEditingController(text: idea.text);
+    final newText = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('編輯靈感', style: AppText.body(size: 16, weight: FontWeight.w600)),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 4,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: '更新你的靈感內容...',
+            hintStyle: AppText.body(color: AppColors.muted),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.dark),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          ),
+          style: AppText.body(size: 14, height: 1.55),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
+          ),
+          TextButton(
+            onPressed: () {
+              final t = ctrl.text.trim();
+              if (t.isEmpty) return;
+              Navigator.pop(ctx, t);
+            },
+            child: Text(
+              '儲存',
+              style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.dark),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (newText != null && newText != idea.text) {
+      await widget.onIdeaEdited(idea.id, newText);
+    }
   }
 
   Future<void> _loadResources() async {
@@ -174,67 +259,6 @@ class _IdeaPageState extends State<IdeaPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
       children: [
-        ...widget.ideas.asMap().entries.map((entry) {
-          final i = entry.key;
-          final idea = entry.value;
-          final expanded = _expandedIds.contains(idea.id);
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: MrCard(
-              onTap: () => setState(() {
-                expanded ? _expandedIds.remove(idea.id) : _expandedIds.add(idea.id);
-              }),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 28, height: 28,
-                        decoration: BoxDecoration(
-                          color: AppColors.bg,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${i + 1}',
-                            style: AppText.body(size: 13, weight: FontWeight.w600),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(idea.text, style: AppText.body(size: 14, height: 1.55)),
-                      ),
-                      const SizedBox(width: 8),
-                      // Delete button — isolated from expand tap
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _deleteIdea(idea.id),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(LucideIcons.trash2, size: 14, color: AppColors.muted.withOpacity(0.5)),
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                        size: 15,
-                        color: AppColors.muted,
-                      ),
-                    ],
-                  ),
-                  if (expanded) ...[
-                    const SizedBox(height: 12),
-                    _buildAiPanel(idea),
-                  ],
-                ],
-              ),
-            ),
-          );
-        }),
-
         MrCard(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -288,17 +312,94 @@ class _IdeaPageState extends State<IdeaPage> {
             ],
           ),
         ),
+        ...widget.ideas.reversed.toList().asMap().entries.map((entry) {
+          final i = entry.key;
+          final idea = entry.value;
+          final expanded = _expandedIds.contains(idea.id);
+          return Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: MrCard(
+              onTap: () => setState(() {
+                expanded ? _expandedIds.remove(idea.id) : _expandedIds.add(idea.id);
+              }),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: AppColors.bg,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${i + 1}',
+                            style: AppText.body(size: 13, weight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(idea.text, style: AppText.body(size: 14, height: 1.55)),
+                      ),
+                      const SizedBox(width: 8),
+                      // Edit button — isolated from expand tap
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => widget.onIdeaEdited(idea.id, idea.text),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(LucideIcons.refreshCw  , size: 14, color: AppColors.muted),
+                        ),
+                      ),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _editIdea(idea),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(LucideIcons.pencil, size: 14, color: AppColors.muted),
+                        ),
+                      ),
+                      // Delete button — isolated from expand tap
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _deleteIdea(idea.id),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Icon(LucideIcons.trash2, size: 14, color: AppColors.muted),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                        size: 15,
+                        color: AppColors.muted,
+                      ),
+                    ],
+                  ),
+                  if (expanded) ...[
+                    const SizedBox(height: 12),
+                    _buildAiPanel(idea),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
       ],
     );
   }
 
   Widget _buildAiPanel(Idea idea) {
-    if (idea.aiSummary == null) {
+    if (idea.aiSummary == null || idea.aiSummary! == '分析失敗，請稍後再試' || idea.aiSummary! == '使用者已停用此AI功能') {
       return Row(
         children: [
           Icon(LucideIcons.sparkles, size: 13, color: AppColors.amber.withOpacity(0.7)),
           const SizedBox(width: 6),
-          Text('AI 分析中...', style: AppText.caption(size: 12, color: AppColors.muted)),
+          Text(idea.aiSummary == null ? '分析中...' : idea.aiSummary!, style: AppText.caption(size: 12, color: AppColors.muted)),
         ],
       );
     }
@@ -320,8 +421,7 @@ class _IdeaPageState extends State<IdeaPage> {
               Expanded(
                 child: Text(
                   idea.aiSummary!,
-                  style: AppText.body(size: 13, color: Colors.white.withOpacity(0.9), height: 1.6)
-                      .copyWith(fontStyle: FontStyle.italic),
+                  style: AppText.body(size: 13, color: Colors.white.withOpacity(0.9), height: 1.6),
                 ),
               ),
             ],
@@ -377,10 +477,31 @@ class _IdeaPageState extends State<IdeaPage> {
   // ── 探索資源 ──────────────────────────────────────────────────────────────────
 
   Widget _buildExplore() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
-      children: [
-        Text('跨界推薦資源', style: AppText.display(size: 22, weight: FontWeight.w500)),
+    return RefreshIndicator(
+      onRefresh: _loadResources,
+      color: AppColors.dark,
+      backgroundColor: Colors.white,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+        children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text('推薦資源', style: AppText.display(size: 22, weight: FontWeight.w500)),
+            ),
+            MrIconButton(
+              icon: LucideIcons.refreshCw,
+              iconSize: 14,
+              size: 32,
+              onTap: _loadingResources ? null : _loadResources,
+              iconColor: _loadingResources
+                  ? AppColors.muted.withOpacity(0.4)
+                  : AppColors.dark,
+            ),
+          ],
+        ),
         const SizedBox(height: 4),
         Text('根據你的靈感主題，AI 為你找到的相關資源', style: AppText.label(size: 12)),
         const SizedBox(height: 16),
@@ -408,7 +529,7 @@ class _IdeaPageState extends State<IdeaPage> {
             padding: const EdgeInsets.symmetric(vertical: 48),
             child: Center(
               child: Text(
-                widget.ideas.isEmpty ? '尚無靈感可分析，先記下你的想法吧！' : '推薦載入失敗，請點擊重新推薦',
+                widget.ideas.isEmpty ? '尚無靈感可分析，先記下你的想法吧！' : '推薦載入失敗，請稍後再試',
                 style: AppText.label(size: 13, color: AppColors.muted),
                 textAlign: TextAlign.center,
               ),
@@ -438,7 +559,8 @@ class _IdeaPageState extends State<IdeaPage> {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 

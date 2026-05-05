@@ -1,14 +1,16 @@
+import 'dart:io' show File;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform;
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:myroom/models/note_item.dart';
+import 'package:myroom/services/attachment_storage.dart';
 import 'package:myroom/services/database_service.dart';
-import 'package:myroom/services/openai_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme.dart';
 import '../data/seed_data.dart';
 import '../widgets/mr_card.dart';
 import '../widgets/mr_icon_button.dart';
+import '../widgets/note_modal_sheet.dart';
 
 enum NoteMode { date, category }
 
@@ -36,6 +38,81 @@ const kNoteCatPalette = [
   (Color(0xFF7BAF8A), Color(0xFFEFF5F1)),
 ];
 
+// ─── Attachment helpers (shared between date + category modes) ─────────────────
+
+Future<Map<int, List<NoteAttachment>>> _loadAttachmentsFor(
+  Iterable<NoteItem> notes,
+) async {
+  if (kIsWeb) return const {};
+  final db = DatabaseService.instance;
+  final result = <int, List<NoteAttachment>>{};
+  for (final n in notes) {
+    result[n.id] = await db.getNoteAttachments(n.id);
+  }
+  return result;
+}
+
+/// Persists a [NoteSheetResult] for a brand-new note. Returns the new note id.
+Future<int> _persistNewNote(NoteSheetResult r, String dateKey) async {
+  final db = DatabaseService.instance;
+  late final int id;
+  if (r.catId == null) {
+    id = await db.upsertNote(dateKey, r.content);
+  } else {
+    id = await db.insertCatNote(dateKey, r.content, r.catId!);
+  }
+  if (id > 0 && !kIsWeb) {
+    for (final a in r.added) {
+      final relPath = await AttachmentStorage.instance.save(
+        a.bytes,
+        _extOf(a.filename),
+      );
+      await db.insertNoteAttachment(
+        noteId: id,
+        type: a.type,
+        filename: a.filename,
+        relPath: relPath,
+        extracted: a.extracted,
+      );
+    }
+  }
+  return id;
+}
+
+/// Persists a [NoteSheetResult] for an existing note: updates content,
+/// removes any dropped attachments, inserts any newly added ones.
+Future<void> _persistEditedNote(NoteSheetResult r, NoteItem original) async {
+  final db = DatabaseService.instance;
+  await db.updateNoteContent(original.id, r.content, cat: r.catId);
+  if (kIsWeb) return;
+  final keptIds = r.keptExisting.map((a) => a.id).toSet();
+  final existing = await db.getNoteAttachments(original.id);
+  for (final a in existing) {
+    if (!keptIds.contains(a.id)) {
+      await db.deleteNoteAttachment(a.id);
+    }
+  }
+  for (final a in r.added) {
+    final relPath = await AttachmentStorage.instance.save(
+      a.bytes,
+      _extOf(a.filename),
+    );
+    await db.insertNoteAttachment(
+      noteId: original.id,
+      type: a.type,
+      filename: a.filename,
+      relPath: relPath,
+      extracted: a.extracted,
+    );
+  }
+}
+
+String _extOf(String filename) {
+  final dot = filename.lastIndexOf('.');
+  if (dot < 0 || dot == filename.length - 1) return '';
+  return filename.substring(dot + 1).toLowerCase();
+}
+
 // ─── NotePage ─────────────────────────────────────────────────────────────────
 
 class NotePage extends StatefulWidget {
@@ -44,8 +121,16 @@ class NotePage extends StatefulWidget {
 
   /// Called after any note mutation so main.dart can re-fetch _notes.
   final VoidCallback onNotesMutated;
+  final VoidCallback? onSwipeBack;
+  final VoidCallback? onSwipeForward;
 
-  const NotePage({super.key, required this.notes, required this.onNotesMutated});
+  const NotePage({
+    super.key,
+    required this.notes,
+    required this.onNotesMutated,
+    this.onSwipeBack,
+    this.onSwipeForward,
+  });
 
   @override
   State<NotePage> createState() => _NotePageState();
@@ -60,29 +145,19 @@ class _NotePageState extends State<NotePage> {
   int _day = DateTime.now().day;
   int? _selectedDay;
 
-  /// Controller for the primary date note editor.
-  /// Lifted here so the clear button can call .clear() directly.
-  TextEditingController? _noteCtrl;
-
-  /// Mirror of _noteCtrl.text — used to decide whether to run AI on close.
-  String _editorContent = '';
-
   /// All notes (primary + categorized) for the currently selected day.
   List<NoteItem> _dayNotes = [];
 
-  /// Expanded state for categorized note cards in the day panel.
+  /// Attachments keyed by note id, for the selected day.
+  Map<int, List<NoteAttachment>> _dayAttachments = {};
+
+  /// Expanded state for note cards in the day panel.
   final Set<int> _dayNoteExpandedIds = {};
 
   // ── Category mode ────────────────────────────────────────────────────────
   String? _openCatId;
   List<NoteCategory> _categories = [];
   Map<String, List<NoteItem>> _catNotes = {};
-
-  // ── Inline add-note state ────────────────────────────────────────────────
-  String? _inlineCatId;
-
-  // ── AI state ─────────────────────────────────────────────────────────────
-  bool _classifyingNote = false;
 
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -99,12 +174,6 @@ class _NotePageState extends State<NotePage> {
     _selectDay(_day , '$_year-${fmt2(_month + 1)}-${fmt2(_day)}');
   }
 
-  @override
-  void dispose() {
-    _noteCtrl?.dispose();
-    super.dispose();
-  }
-
   // ── Data loaders ─────────────────────────────────────────────────────────
 
   Future<void> _loadCategories() async {
@@ -117,7 +186,6 @@ class _NotePageState extends State<NotePage> {
       setState(() {
         _categories = cats;
         _catNotes = notesMap;
-        _inlineCatId ??= cats.isNotEmpty ? cats.first.id : null;
       });
     }
   }
@@ -129,100 +197,107 @@ class _NotePageState extends State<NotePage> {
 
   Future<void> _loadDayNotes(String dateKey) async {
     final notes = await DatabaseService.instance.getNotesByDate(dateKey);
+    final attachments = await _loadAttachmentsFor(notes);
     if (!mounted) return;
-    // Sync the primary note's content into the text controller
-    final primary = notes.where((n) => n.catId == null).firstOrNull;
-    if (_noteCtrl != null && primary != null &&
-        _noteCtrl!.text != primary.content) {
-      _noteCtrl!.text = primary.content;
-      _editorContent = primary.content;
-    }
-    setState(() => _dayNotes = notes);
+    setState(() {
+      _dayNotes = notes;
+      _dayAttachments = attachments;
+    });
   }
 
   // ── Note actions ──────────────────────────────────────────────────────────
 
-  Future<void> _saveNote(String text) async {
-    if (_noteKey.isEmpty) return;
-    _editorContent = text;
-    await DatabaseService.instance.upsertNote(_noteKey, text);
-    widget.onNotesMutated();
-  }
-
   void _selectDay(int day, String key) {
-    _noteCtrl?.dispose();
-    final initialText = '';
-    _noteCtrl = TextEditingController(text: initialText);
-    _editorContent = initialText;
     _dayNoteExpandedIds.clear();
     setState(() {
       _selectedDay = day;
       _dayNotes = [];
+      _dayAttachments = {};
     });
     _loadDayNotes(key);
   }
 
   void _closeDayPanel() {
-    final key = _noteKey;
-    final content = _editorContent;
-    _noteCtrl?.dispose();
-    _noteCtrl = null;
     _dayNoteExpandedIds.clear();
     setState(() {
       _selectedDay = null;
-      _editorContent = '';
       _dayNotes = [];
+      _dayAttachments = {};
     });
-    if (content.isNotEmpty && !_classifyingNote && key.isNotEmpty) {
-      _classifyNote(key, content);
-    }
   }
 
-  Future<void> _classifyNote(String dateKey, String content) async {
-    if (_categories.isEmpty) return;
-    setState(() => _classifyingNote = true);
-    try {
-      final note = await DatabaseService.instance.getNotePrimary(dateKey);
-      if (note == null || !mounted) return;
-      final catId = await OpenAIService.instance.classifyNoteToCategory(
-        content, _categories,
-      );
-      if (catId != null && mounted) {
-        await DatabaseService.instance.updateNoteCat(note.id, catId);
-        await _loadCatNotes(catId);
-        widget.onNotesMutated();
-      }
-    } finally {
-      if (mounted) setState(() => _classifyingNote = false);
-    }
-  }
-
-  /// After a new category is created, silently re-checks all 未分類 notes
-  /// (cat_id = 'undefined') and moves any that fit the new category.
-  Future<void> _reclassifyUndefinedNotes(String newCatId) async {
-    final undefinedNotes =
-        await DatabaseService.instance.getNotesByCategory('undefined');
-    if (undefinedNotes.isEmpty || !mounted) return;
-
-    final catIdx = _categories.indexWhere((c) => c.id == newCatId);
-    if (catIdx == -1) return;
-
-    final matchIds = await OpenAIService.instance.findNotesMatchingCategory(
-      _categories[catIdx],
-      undefinedNotes,
+  Future<void> _openAddNoteSheet() async {
+    if (_noteKey.isEmpty) return;
+    final result = await showNoteModalSheet(
+      context,
+      dateKey: _noteKey,
+      categories: _categories,
     );
-    if (matchIds.isEmpty || !mounted) return;
-
-    await Future.wait(
-      matchIds.map((id) => DatabaseService.instance.updateNoteCat(id, newCatId)),
-    );
+    if (result == null || !mounted) return;
+    await _persistNewNote(result, _noteKey);
     await Future.wait([
-      _loadCatNotes(newCatId),
-      _loadCatNotes('undefined'),
+      _loadDayNotes(_noteKey),
+      if (result.catId != null) _loadCatNotes(result.catId!),
     ]);
     widget.onNotesMutated();
   }
 
+  Future<void> _openEditNoteSheet(NoteItem note) async {
+    final existing = _dayAttachments[note.id] ?? const <NoteAttachment>[];
+    final result = await showNoteModalSheet(
+      context,
+      dateKey: note.dateKey,
+      categories: _categories,
+      initialContent: note.content,
+      initialCatId: note.catId,
+      existingAttachments: existing,
+      isEditing: true,
+    );
+    if (result == null || !mounted) return;
+    await _persistEditedNote(result, note);
+    await Future.wait([
+      _loadDayNotes(_noteKey),
+      if (note.catId != null) _loadCatNotes(note.catId!),
+      if (result.catId != null) _loadCatNotes(result.catId!),
+    ]);
+    widget.onNotesMutated();
+  }
+
+  Future<void> _deleteDayNote(NoteItem note) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('刪除筆記', style: AppText.body(size: 16, weight: FontWeight.w600)),
+        content: Text(
+          '確定刪除這份筆記？',
+          style: AppText.body(size: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              '刪除',
+              style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.rose),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await DatabaseService.instance.deleteNote(note.id);
+      await Future.wait([
+        _loadDayNotes(_noteKey),
+        if (note.catId != null) _loadCatNotes(note.catId!),
+      ]);
+      widget.onNotesMutated();
+    }
+  }
 
   void _showAddCategoryDialog() {
     final labelCtrl = TextEditingController();
@@ -291,8 +366,6 @@ class _NotePageState extends State<NotePage> {
                   color: palette.$1, bg: palette.$2, sortOrder: idx,
                 ));
                 await _loadCategories();
-                // Background: move 未分類 notes that fit the new category.
-                _reclassifyUndefinedNotes(id);
               },
               child: Text(
                 '新增',
@@ -371,20 +444,15 @@ class _NotePageState extends State<NotePage> {
       );
       return _CatDetail(
         category: cat,
+        categories: _categories,
         notes: _catNotes[_openCatId] ?? [],
         onBack: () => setState(() => _openCatId = null),
-        onNoteAdded: (content) async {
-          await DatabaseService.instance.insertCatNote(
-            todayKey(), content, _openCatId!,
-          );
+        onMutated: () async {
           await _loadCatNotes(_openCatId!);
           widget.onNotesMutated();
         },
-        onNoteDeleted: (id) async {
-          await DatabaseService.instance.deleteNote(id);
-          await _loadCatNotes(_openCatId!);
-          widget.onNotesMutated();
-        },
+        loadDay: _loadDayNotes,
+        loadCat: _loadCatNotes,
       );
     }
 
@@ -465,19 +533,10 @@ class _NotePageState extends State<NotePage> {
               style: AppText.body(size: 16, weight: FontWeight.w500),
             ),
             const Spacer(),
-            if (_classifyingNote) ...[
-              const SizedBox(
-                width: 14, height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5, color: AppColors.muted,
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
             MrIconButton(
               icon: LucideIcons.calendar,
               iconSize: 15,
-              onTap: () async {              
+              onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
                   initialDate: DateTime.now(),
@@ -599,111 +658,32 @@ class _NotePageState extends State<NotePage> {
         if (_selectedDay != null) ...[
           const SizedBox(height: 16),
 
-          // Primary date note editor
-          MrCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      '${_month + 1}月$_selectedDay日 $_year',
-                      style: AppText.body(size: 13, weight: FontWeight.w500),
-                    ),
-                    const Spacer(),
-                    // Clear button — clears both controller and DB
-                    if (_editorContent.isNotEmpty)
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () async {
-                          _noteCtrl?.clear();
-                          setState(() => _editorContent = '');
-                          await DatabaseService.instance.upsertNote(_noteKey, '');
-                          widget.onNotesMutated();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Icon(
-                            LucideIcons.eraser, size: 15, color: AppColors.muted,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (_noteCtrl != null)
-                  _NoteEditor(
-                    controller: _noteCtrl!,
-                    onChanged: _saveNote,
-                  ),
-                if (_categories.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 6, runSpacing: 6,
-                    children: _categories.map((c) {
-                      final isSelected = c.id == _inlineCatId;
-                      return GestureDetector(
-                        onTap: () => setState(() => _inlineCatId = c.id),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppColors.dark : AppColors.border,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            c.label,
-                            style: AppText.caption(
-                              size: 12,
-                              color: isSelected ? Colors.white : AppColors.muted,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () async {
-                      final content = _editorContent.trim();
-                      final catId = _inlineCatId;
-                      if (content.isEmpty || catId == null) return;
-                      _noteCtrl?.clear();
-                      setState(() => _editorContent = '');
-                      await DatabaseService.instance.upsertNote(_noteKey, '');
-                      await DatabaseService.instance.insertCatNote(_noteKey, content, catId);
-                      await Future.wait([
-                        _loadDayNotes(_noteKey),
-                        _loadCatNotes(catId),
-                      ]);
-                      widget.onNotesMutated();
-                    },
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.dark,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '儲存',
-                        textAlign: TextAlign.center,
-                        style: AppText.label(
-                          size: 13,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+          // Single dark "新增筆記" button — opens the modal sheet.
+          GestureDetector(
+            onTap: _openAddNoteSheet,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.dark,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.plus, size: 15, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    '新增 ${_month + 1}月$_selectedDay日 的筆記',
+                    style: AppText.body(size: 14, weight: FontWeight.w600, color: Colors.white),
                   ),
                 ],
-              ],
+              ),
             ),
           ),
 
-          // Categorized notes for this day
-          ..._dayNotes
-              .where((n) => n.catId != null)
-              .map((note) => _buildDayNoteCard(note)),
+          // Notes for this day (primary + categorized).
+          ..._dayNotes.map((note) => _buildDayNoteCard(note)),
         ],
       ],
     );
@@ -711,13 +691,14 @@ class _NotePageState extends State<NotePage> {
 
   Widget _buildDayNoteCard(NoteItem note) {
     final isExpanded = _dayNoteExpandedIds.contains(note.id);
+    final attachments = _dayAttachments[note.id] ?? const <NoteAttachment>[];
     final cat = _categories.firstWhere(
-      (c) => c.id == note.catId,
-      orElse: () => NoteCategory(
-        id: '', label: '未分類', iconName: 'tag',
-        color: AppColors.muted, bg: AppColors.border, sortOrder: 0,
-      ),
-    );
+            (c) => c.id == note.catId,
+            orElse: () => NoteCategory(
+              id: '', label: '未分類', iconName: 'tag',
+              color: AppColors.muted, bg: AppColors.border, sortOrder: 0,
+            ),
+          );
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -732,7 +713,7 @@ class _NotePageState extends State<NotePage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: cat.color.withOpacity(0.12),
+                    color: (cat.color).withOpacity(0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -741,9 +722,8 @@ class _NotePageState extends State<NotePage> {
                   ),
                 ),
                 const Spacer(),
-                // Expand chevron
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                _IconAction(
+                  icon: isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                   onTap: () => setState(() {
                     if (isExpanded) {
                       _dayNoteExpandedIds.remove(note.id);
@@ -751,34 +731,20 @@ class _NotePageState extends State<NotePage> {
                       _dayNoteExpandedIds.add(note.id);
                     }
                   }),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8, right: 4),
-                    child: Icon(
-                      isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                      size: 14, color: AppColors.muted,
-                    ),
-                  ),
                 ),
-                // Delete button
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () async {
-                    await DatabaseService.instance.deleteNote(note.id);
-                    await Future.wait([
-                      _loadDayNotes(_noteKey),
-                      if (note.catId != null) _loadCatNotes(note.catId!),
-                    ]);
-                    widget.onNotesMutated();
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(LucideIcons.trash2, size: 14, color: AppColors.muted),
-                  ),
+                _IconAction(
+                  icon: LucideIcons.pencil,
+                  onTap: () => _openEditNoteSheet(note),
+                ),
+                _IconAction(
+                  icon: LucideIcons.trash2,
+                  onTap: () => _deleteDayNote(note),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => setState(() {
                 if (isExpanded) {
                   _dayNoteExpandedIds.remove(note.id);
@@ -793,6 +759,10 @@ class _NotePageState extends State<NotePage> {
                 style: AppText.label(size: 13, color: AppColors.muted),
               ),
             ),
+            if (attachments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _AttachmentRow(attachments: attachments),
+            ],
           ],
         ),
       ),
@@ -886,62 +856,25 @@ class _NotePageState extends State<NotePage> {
   }
 }
 
-// ─── Note Editor (StatelessWidget — controller owned by parent) ───────────────
-
-class _NoteEditor extends StatelessWidget {
-  final TextEditingController controller;
-  final Future<void> Function(String) onChanged;
-
-  const _NoteEditor({required this.controller, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      onKeyEvent: (kIsWeb &&
-              defaultTargetPlatform != TargetPlatform.android &&
-              defaultTargetPlatform != TargetPlatform.iOS)
-          ? (FocusNode _, KeyEvent event) {
-              if (event is KeyDownEvent &&
-                  (event.logicalKey == LogicalKeyboardKey.enter ||
-                   event.logicalKey == LogicalKeyboardKey.numpadEnter) &&
-                  !HardwareKeyboard.instance.isShiftPressed) {
-                onChanged(controller.text);
-                return KeyEventResult.handled;
-              }
-              return KeyEventResult.ignored;
-            }
-          : null,
-      child: TextField(
-        controller: controller,
-        maxLines: 4,
-        scrollPadding: const EdgeInsets.only(bottom: 120.0),
-        decoration: InputDecoration(
-          hintText: '在這裡寫下今天的筆記...',
-          hintStyle: AppText.body(color: AppColors.muted),
-          border: InputBorder.none,
-        ),
-        style: AppText.body(size: 14, height: 1.7),
-        onChanged: onChanged,
-      ),
-    );
-  }
-}
-
 // ─── Category Detail ──────────────────────────────────────────────────────────
 
 class _CatDetail extends StatefulWidget {
   final NoteCategory category;
+  final List<NoteCategory> categories;
   final List<NoteItem> notes;
   final VoidCallback onBack;
-  final Future<void> Function(String content) onNoteAdded;
-  final Future<void> Function(int id) onNoteDeleted;
+  final Future<void> Function() onMutated;
+  final Future<void> Function(String) loadDay;
+  final Future<void> Function(String) loadCat;
 
   const _CatDetail({
     required this.category,
+    required this.categories,
     required this.notes,
     required this.onBack,
-    required this.onNoteAdded,
-    required this.onNoteDeleted,
+    required this.onMutated,
+    required this.loadDay,
+    required this.loadCat,
   });
 
   @override
@@ -950,6 +883,24 @@ class _CatDetail extends StatefulWidget {
 
 class _CatDetailState extends State<_CatDetail> {
   final Set<int> _expandedIds = {};
+  Map<int, List<NoteAttachment>> _attachments = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshAttachments();
+  }
+
+  @override
+  void didUpdateWidget(_CatDetail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.notes != widget.notes) _refreshAttachments();
+  }
+
+  Future<void> _refreshAttachments() async {
+    final attachments = await _loadAttachmentsFor(widget.notes);
+    if (mounted) setState(() => _attachments = attachments);
+  }
 
   String _formatDate(String dateKey) {
     final parts = dateKey.split('-');
@@ -957,66 +908,68 @@ class _CatDetailState extends State<_CatDetail> {
     return '${int.parse(parts[1])}月${int.parse(parts[2])}日';
   }
 
-  InputDecoration _fieldDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: AppText.body(color: AppColors.muted),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.border),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.border),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: AppColors.dark),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-  );
+  Future<void> _openAddSheet() async {
+    final result = await showNoteModalSheet(
+      context,
+      dateKey: todayKey(),
+      categories: widget.categories,
+      initialCatId: widget.category.id,
+    );
+    if (result == null || !mounted) return;
+    await _persistNewNote(result, todayKey());
+    await widget.onMutated();
+  }
 
-  void _showAddNoteDialog() {
-    final contentCtrl = TextEditingController();
+  Future<void> _openEditSheet(NoteItem note) async {
+    final existing = _attachments[note.id] ?? const <NoteAttachment>[];
+    final result = await showNoteModalSheet(
+      context,
+      dateKey: note.dateKey,
+      categories: widget.categories,
+      initialContent: note.content,
+      initialCatId: note.catId,
+      existingAttachments: existing,
+      isEditing: true,
+    );
+    if (result == null || !mounted) return;
+    await _persistEditedNote(result, note);
+    await Future.wait([
+      widget.loadDay(note.dateKey),
+      if (result.catId != null) widget.loadCat(result.catId!),
+    ]);
+    await widget.onMutated();
+  }
 
-    showDialog(
+  Future<void> _confirmDeleteNote(NoteItem note) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('新增筆記', style: AppText.body(size: 16, weight: FontWeight.w600)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: contentCtrl,
-              maxLines: 4,
-              decoration: _fieldDecoration('內容'),
-              style: AppText.body(size: 14, height: 1.6),
-            ),
-          ],
+        title: Text('刪除筆記', style: AppText.body(size: 16, weight: FontWeight.w600)),
+        content: Text(
+          '確定刪除這份筆記？',
+          style: AppText.body(size: 14),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => Navigator.pop(ctx, false),
             child: Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
           ),
           TextButton(
-            onPressed: () async {
-              final content = contentCtrl.text.trim();
-              if (content.isEmpty) return;
-              Navigator.pop(ctx);
-              await widget.onNoteAdded(
-                content,
-              );
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              '儲存',
-              style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.dark),
+              '刪除',
+              style: AppText.body(size: 14, weight: FontWeight.w600, color: AppColors.rose),
             ),
           ),
         ],
       ),
     );
+    if (confirmed == true && mounted) {
+      await DatabaseService.instance.deleteNote(note.id);
+      await widget.onMutated();
+    }
   }
 
   @override
@@ -1049,11 +1002,15 @@ class _CatDetailState extends State<_CatDetail> {
         const SizedBox(height: 16),
 
         ...widget.notes.map((note) {
-          final isExpanded   = _expandedIds.contains(note.id);
+          final expanded   = _expandedIds.contains(note.id);
+          final attachments = _attachments[note.id] ?? const <NoteAttachment>[];
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: MrCard(
+              onTap: () => setState(() {
+                expanded ? _expandedIds.remove(note.id) : _expandedIds.add(note.id);
+              }),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1061,69 +1018,38 @@ class _CatDetailState extends State<_CatDetail> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() {
-                            if (isExpanded) {
-                              _expandedIds.remove(note.id);
-                            } else {
-                              _expandedIds.add(note.id);
-                            }
-                          }),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_formatDate(note.dateKey),
-                                  style: AppText.body(size: 14, weight: FontWeight.w600)),
-                              const SizedBox(height: 2),
-                            ],
-                          ),
-                        ),
+                        child: Text(_formatDate(note.dateKey),
+                            style: AppText.body(size: 14, weight: FontWeight.w600)),
                       ),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
+                      _IconAction(
+                        icon: expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                         onTap: () => setState(() {
-                          if (isExpanded) {
-                            _expandedIds.remove(note.id);
-                          } else {
-                            _expandedIds.add(note.id);
-                          }
+                          expanded ? _expandedIds.remove(note.id) : _expandedIds.add(note.id);
                         }),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 8, right: 4),
-                          child: Icon(
-                            isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                            size: 14, color: AppColors.muted,
-                          ),
-                        ),
                       ),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => widget.onNoteDeleted(note.id),
-                        child: const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: Icon(LucideIcons.trash2, size: 14, color: AppColors.muted),
-                        ),
+                      _IconAction(
+                        icon: LucideIcons.pencil,
+                        onTap: () => _openEditSheet(note),
+                      ),
+                      _IconAction(
+                        icon: LucideIcons.trash2,
+                        onTap: () => _confirmDeleteNote(note),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      if (isExpanded) {
-                        _expandedIds.remove(note.id);
-                      } else {
-                        _expandedIds.add(note.id);
-                      }
-                    }),
-                    child: Text(
-                      note.content,
-                      maxLines: isExpanded ? null : 2,
-                      overflow: isExpanded
-                          ? TextOverflow.visible
-                          : TextOverflow.ellipsis,
-                      style: AppText.label(size: 13, color: AppColors.muted),
-                    ),
+                  Text(
+                    note.content,
+                    maxLines: expanded ? null : 2,
+                    overflow: expanded
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
+                    style: AppText.label(size: 13, color: AppColors.muted),
                   ),
+                  if (attachments.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _AttachmentRow(attachments: attachments),
+                  ],
                 ],
               ),
             ),
@@ -1132,26 +1058,184 @@ class _CatDetailState extends State<_CatDetail> {
 
         const SizedBox(height: 4),
         GestureDetector(
-          onTap: _showAddNoteDialog,
+          onTap: _openAddSheet,
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 13),
+            padding: const EdgeInsets.symmetric(vertical: 14),
             decoration: BoxDecoration(
-              color: AppColors.bg,
+              color: AppColors.dark,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(LucideIcons.plus, size: 14, color: AppColors.muted),
+                const Icon(LucideIcons.plus, size: 15, color: Colors.white),
                 const SizedBox(width: 6),
-                Text('新增筆記', style: AppText.label(size: 13)),
+                Text('新增筆記',
+                    style: AppText.body(size: 14, weight: FontWeight.w600, color: Colors.white)),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Small reusable widgets ──────────────────────────────────────────────────
+
+class _IconAction extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _IconAction({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: Icon(icon, size: 14, color: AppColors.muted),
+      ),
+    );
+  }
+}
+
+class _AttachmentRow extends StatelessWidget {
+  final List<NoteAttachment> attachments;
+  const _AttachmentRow({required this.attachments});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: attachments.map((a) {
+        switch (a.type) {
+          case NoteAttachmentType.image:
+            return _ImageThumb(att: a);
+          case NoteAttachmentType.audio:
+            return _AttachInfoChip(
+              icon: LucideIcons.music,
+              label: a.filename,
+              onTap: () => _openAttachment(a),
+            );
+          case NoteAttachmentType.file:
+            return _AttachInfoChip(
+              icon: LucideIcons.fileText,
+              label: a.filename,
+              onTap: () => _openAttachment(a),
+            );
+        }
+      }).toList(),
+    );
+  }
+}
+
+class _ImageThumb extends StatelessWidget {
+  final NoteAttachment att;
+  const _ImageThumb({required this.att});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showImageViewer(context, att),
+      child: FutureBuilder<File>(
+        future: AttachmentStorage.instance.file(att.relPath),
+        builder: (_, snap) {
+          if (snap.data == null) {
+            return Container(
+              width: 56, height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            );
+          }
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.file(
+              snap.data!,
+              width: 56, height: 56,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 56, height: 56,
+                color: AppColors.border,
+                child: const Icon(LucideIcons.imageOff, size: 18, color: AppColors.muted),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showImageViewer(BuildContext context, NoteAttachment att) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(8),
+        child: FutureBuilder<File>(
+          future: AttachmentStorage.instance.file(att.relPath),
+          builder: (_, snap) {
+            if (snap.data == null) {
+              return const SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return InteractiveViewer(
+              child: Image.file(snap.data!, fit: BoxFit.contain),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _openAttachment(NoteAttachment att) async {
+  final f = await AttachmentStorage.instance.file(att.relPath);
+  final uri = Uri.file(f.path);
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+class _AttachInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  const _AttachInfoChip({required this.icon, required this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.border,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: AppColors.muted),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
+              child: Text(
+                label,
+                style: AppText.caption(size: 11, color: AppColors.dark),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
