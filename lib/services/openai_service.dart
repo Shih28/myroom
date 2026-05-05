@@ -714,7 +714,7 @@ class OpenAIService {
   // ── Multi-item classification ───────────────────────────────────────────────
 
   static const _multiClassifySystemPrompt = '你是一個個人生產力助理，使用繁體中文。使用者的輸入可能包含多個不同主題的事項。\n'
-      '分析全部內容，拆解成數個彼此獨立的事項，每個事項都只能被分類到以下五種類型之一，並回傳 JSON。\n\n'
+      '分析全部內容，拆解成數個彼此獨立的事項，每個事項都只能被分類到以下四種類型之一，並回傳 JSON。\n\n'
       '回傳格式（嚴格 JSON，不含其他文字）：{"items":[...]}\n\n'
       '每個 item 的結構：\n'
       '- todo: {"type":"todo","text":"...","cat":"..."}\n'
@@ -724,7 +724,6 @@ class OpenAIService {
       '  （若沒有明確結束時間，預設 start+1 小時；start_year/start_month 若未跨月可省略，預設當月）\n'
       '- idea: {"type":"idea","text":"..."}\n'
       '- note: {"type":"note","date_key":"YYYY-MM-DD","note_cat":"...,"content":"...","attachment_indices":[i,...]}\n'
-      '- recap: {"type":"recap","era":"past|now|future","title":"...","desc":"...","date":"..."}\n\n'
       '特別說明：\n'
       '- todo 代表未指定時間的事項，例如「找個時間去買蘋果」\n'
       '- todo_with_time 代表有明確時間的事項\n'
@@ -757,6 +756,7 @@ class OpenAIService {
     List<String> base64Images = const [],
     String? fileText,
     List<AttachmentInputMeta> attachments = const [],
+    Set<String> userSpecifiedCat = const {},
   }) async {
     assert(
       AppConfig.openAiApiKey != 'sk-YOUR_KEY_HERE',
@@ -772,7 +772,12 @@ class OpenAIService {
     final today = _todayStr();
     final categories = await DatabaseService.instance.getCategories();
     final noteCategories = await DatabaseService.instance.getNoteCategories();
-    final systemContent = '$_multiClassifySystemPrompt\n今天日期：$today\n- cat只能是：${categories.map((c) => c.name).join('|')}\n- note_cat只能是：${noteCategories.map((nc) => nc.id).join('|')}';
+    final systemContent = '$_multiClassifySystemPrompt\n'
+      '-今天日期：$today\n'
+      '- cat只能是：${categories.map((c) => c.name).join('|')}\n'
+      '- note_cat只能是：${noteCategories.map((nc) => nc.id).join('|')}\n\n'
+      '其他說明：\n'
+      '使用者指定允許使用的類型：${userSpecifiedCat.isEmpty ? '無限定': userSpecifiedCat.join('|')}';
 
     // Build the text payload — append a manifest of attachments so the model
     // can reference them by index in `attachment_indices`.

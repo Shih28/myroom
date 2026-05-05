@@ -78,6 +78,8 @@ class _AddOverlayState extends State<AddOverlay>
     '札記': ['上週', '上禮拜', '昨天', '感受', '可愛', '開心', '煩', '無聊', '覺得', '想到', '看到']
   };
 
+  static const _catMap = {'行程': 'todo_with_time', '待辦': 'todo', '靈感': 'idea', '札記': 'note'};
+
   @override
   void initState() {
     super.initState();
@@ -107,7 +109,7 @@ class _AddOverlayState extends State<AddOverlay>
         .where((e) => e.value.any((kw) => text.contains(kw)))
         .map((e) => e.key)
         .toSet();
-    setState(() => _selectedPages = matches.isEmpty ? {} : matches);
+    setState(() => _selectedPages = matches.isEmpty ? {} : matches.map((m) => _catMap[m]) as Set<String>);
   }
 
   Future<void> _loadCategories() async {
@@ -275,6 +277,7 @@ class _AddOverlayState extends State<AddOverlay>
       finalText.isNotEmpty ? finalText : null,
       base64Images: base64Images,
       attachments: attachmentMetas,
+      userSpecifiedCat: _selectedPages.map((m) => _catMap[m]) as Set<String>
     );
 
     if (!mounted) return;
