@@ -384,9 +384,9 @@ class _IllustrationNavBar extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.arrowLeftRight, size: 28, color: AppColors.muted),
+                  Icon(LucideIcons.pointer, size: 28, color: AppColors.muted),
                   const SizedBox(height: 8),
-                  Text('Swipe to navigate', style: AppText.body(size: 13, color: AppColors.muted)),
+                  Text('Click to navigate', style: AppText.body(size: 13, color: AppColors.muted)),
                 ],
               ),
             ),

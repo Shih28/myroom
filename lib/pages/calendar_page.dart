@@ -292,7 +292,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: active ? Colors.white : Colors.transparent,
                           borderRadius: BorderRadius.circular(18),
@@ -326,10 +326,10 @@ class _CalendarPageState extends State<CalendarPage> {
                 iconSize: 16,
                 onTap: () => _navigate(-1),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               Text(_headerLabel,
                   style: AppText.body(size: 13, weight: FontWeight.w500)),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               MrIconButton(
                 icon: LucideIcons.chevronRight,
                 iconSize: 16,
