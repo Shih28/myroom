@@ -1,0 +1,5 @@
+This project, MyRoom, is a productivity tool which users can write down their schedule, todo-list, idea, and notes. With the integration with AI, users can input text, audio, pictures and files, and AI classify them to the corresponding page. The chatbot also handles user instructions to modify almost all data in the app, such as rescheduling events, summarize the things done, etc. Finally, there is a recap page showing the achievements or events done and summary of the past and/or future.
+
+We've complete a demo using flutter and local sql database, and now moving to flutter + firebase for a semi-production release. Your goal is the refactor this project. The guides are in refactor_guide folder. The summary of current implementation is at Project.md.
+
+For each phase, commit your changes before continue.
