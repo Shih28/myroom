@@ -2,4 +2,4 @@ This project, MyRoom, is a productivity tool which users can write down their sc
 
 We've complete a demo using flutter and local sql database, and now moving to flutter + firebase for a semi-production release. Your goal is the refactor this project. The guides are in refactor_guide folder. The summary of current implementation is at Project.md.
 
-For each phase, commit your changes before continue.
+Run each phase one by one, commit your changes after each phase and stop to wait user input.

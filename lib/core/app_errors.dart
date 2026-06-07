@@ -13,7 +13,8 @@ final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
 class AppErrors {
   AppErrors._();
 
-  static void present(Object error) {
+  static void present(Object? error) {
+    if (error == null) return; // e.g. a StreamProvider catchError with no error
     final Failure f = error is Failure ? error : mapFirebase(error);
     final messenger = scaffoldMessengerKey.currentState;
     if (messenger == null) return;

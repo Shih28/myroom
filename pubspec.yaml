@@ -6,9 +6,6 @@ version: 1.0.0+1
 environment:
   sdk: ^3.11.4
 
-# NOTE: The legacy SQLite dependencies (sqflite*, path_provider) are kept during
-# Phase 0 only so the not-yet-deleted demo code keeps compiling. Phase 1 deletes
-# the SQLite layer and removes them.
 dependencies:
   flutter:
     sdk: flutter
@@ -33,7 +30,7 @@ dependencies:
   crypto: ^3.0.6
   flutter_timezone: ^3.0.1   # device IANA tz → settings/app.tz patch (Auth.md §3)
 
-  # ── UI / media (retained) ──────────────────────────────────────────────────
+  # ── UI / media ─────────────────────────────────────────────────────────────
   google_fonts: ^8.0.2
   lucide_icons_flutter: ^3.1.13
   url_launcher: ^6.3.1
@@ -41,14 +38,7 @@ dependencies:
   record: ^6.0.0
   permission_handler: ^12.0.1
   pdfrx: ^2.2.24
-  http: ^1.2.2
-
-  # ── Legacy SQLite (Phase 0 only — removed in Phase 1) ──────────────────────
-  sqflite: ^2.4.1
-  sqflite_common_ffi: ^2.3.4
-  sqflite_common_ffi_web: ^1.1.1
-  path: ^1.9.1
-  path_provider: ^2.1.4
+  path_provider: ^2.1.4   # temp dir for audio recording / PDF extraction
 
 dev_dependencies:
   flutter_test:
