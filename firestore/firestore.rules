@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function createdAtKept() {
+      return resource == null
+        || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt']);
+    }
+    function notSetting(keys) {                      // client may not create-with / change these fn-only keys
+      return resource == null
+        ? !request.resource.data.keys().hasAny(keys)
+        : !request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+
+    match /users/{uid} {
+      allow read: if owner(uid);
+      allow write: if false;                         // root doc is provisioned by provisionUser (Admin SDK)
+
+      match /settings/{doc}        { allow read, write: if owner(uid); }
+      match /_internal/{doc=**}    { allow read, write: if false; }     // rate-limit etc., fn-only
+
+      match /todo_categories/{id}  { allow read, write: if owner(uid); }
+      match /note_categories/{id}  { allow read, write: if owner(uid); }
+
+      match /events/{id} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && createdAtKept();
+      }
+      match /todos/{id} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && createdAtKept();
+      }
+
+      match /ideas/{document=**} {                   // user_ideas + pinned_resources
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && createdAtKept()
+          && notSetting(['aiSummary', 'aiStatus', 'links']);
+      }
+
+      match /notes/{nid} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && createdAtKept();
+        match /extracted_texts/{aid} { allow read, write: if owner(uid); }
+      }
+
+      match /recaps/{id} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && createdAtKept()
+          && notSetting(['exportStoragePath']);                  // written only by exportRecap (Admin SDK)
+      }
+
+      match /achievements/{id} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && createdAtKept()
+          && notSetting(['pastExportStoragePath', 'currentExportStoragePath', 'futureExportStoragePath']);
+                                                                  // written only by exportAchievement (Admin SDK)
+      }
+
+      match /chat_messages/{mid} {
+        allow read: if owner(uid);
+        allow write: if false;                       // appended only by the chat function (Admin SDK)
+      }
+    }
+  }
+}
