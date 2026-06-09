@@ -1,15 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_errors.dart';
+import '../../../core/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/mr_add_row.dart';
 import '../../../core/widgets/mr_card.dart';
+import '../../../shared/ai/domain/ai_service.dart';
+import '../../../shared/storage/storage_repo.dart';
 import '../domain/achievement.dart';
 import '../domain/achievement_repo.dart';
 import '../domain/recap.dart';
 import '../domain/recap_repo.dart';
+
+/// Opens a server-rendered export (SVG) by resolving a fresh download URL.
+Future<void> _openExport(BuildContext context, String storagePath) async {
+  final url = await context.read<StorageRepo>().downloadUrl(storagePath);
+  final uri = Uri.tryParse(url);
+  if (uri != null && await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+
+/// Builds the dataSummary for `generateEraInsight` from existing text (or a
+/// gentle fallback when the user hasn't written anything yet).
+String _eraSummary(String label, String basis) =>
+    basis.trim().isEmpty ? '（使用者尚未填寫$label的內容，請給予溫暖、具體的鼓勵）' : basis.trim();
 
 /// Recap tab — renders body content only (the app shell supplies the top bar,
 /// page title and bottom nav). Streams both `achievements` and `recaps`.
@@ -236,6 +254,9 @@ class _AchievementCard extends StatelessWidget {
             accent: AppColors.amber,
             value: achievement.pastContent,
             hint: '回顧已經走過的路、完成的事…',
+            achievementId: achievement.id,
+            eraKey: 'past',
+            exportPath: achievement.pastExportStoragePath,
             onSave: (text) => context.read<AchievementRepo>().update(
                   achievement.copyWith(pastContent: text),
                 ),
@@ -247,6 +268,9 @@ class _AchievementCard extends StatelessWidget {
             accent: AppColors.sage,
             value: achievement.currentContent,
             hint: '此刻正在進行、想達成的事…',
+            achievementId: achievement.id,
+            eraKey: 'current',
+            exportPath: achievement.currentExportStoragePath,
             onSave: (text) => context.read<AchievementRepo>().update(
                   achievement.copyWith(currentContent: text),
                 ),
@@ -258,6 +282,9 @@ class _AchievementCard extends StatelessWidget {
             accent: AppColors.blue,
             value: achievement.futureContent,
             hint: '想前往的方向、長遠的願景…',
+            achievementId: achievement.id,
+            eraKey: 'future',
+            exportPath: achievement.futureExportStoragePath,
             onSave: (text) => context.read<AchievementRepo>().update(
                   achievement.copyWith(futureContent: text),
                 ),
@@ -269,12 +296,17 @@ class _AchievementCard extends StatelessWidget {
 }
 
 /// One editable era text block. Tap to edit inline; saving fires [onSave].
+/// AI generate (`generateEraInsight`) and export (`exportAchievement`) run via
+/// the header buttons.
 class _EraBlock extends StatefulWidget {
   final String label;
   final String sublabel;
   final Color accent;
   final String value;
   final String hint;
+  final String achievementId;
+  final String eraKey; // past | current | future
+  final String? exportPath;
   final ValueChanged<String> onSave;
 
   const _EraBlock({
@@ -283,6 +315,9 @@ class _EraBlock extends StatefulWidget {
     required this.accent,
     required this.value,
     required this.hint,
+    required this.achievementId,
+    required this.eraKey,
+    required this.exportPath,
     required this.onSave,
   });
 
@@ -292,6 +327,7 @@ class _EraBlock extends StatefulWidget {
 
 class _EraBlockState extends State<_EraBlock> {
   bool _editing = false;
+  bool _busy = false;
   late final TextEditingController _ctrl =
       TextEditingController(text: widget.value);
 
@@ -319,6 +355,42 @@ class _EraBlockState extends State<_EraBlock> {
     final text = _ctrl.text.trim();
     setState(() => _editing = false);
     if (text != widget.value) widget.onSave(text);
+  }
+
+  Future<void> _generate() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final res = await context.read<AiService>().generateEraInsight(
+          eraLabel: widget.label,
+          dataSummary: _eraSummary(widget.label, widget.value),
+        );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res is Ok<String> && res.value.trim().isNotEmpty) {
+      _ctrl.text = res.value;
+      widget.onSave(res.value); // persists; stream refreshes value
+    }
+  }
+
+  Future<void> _export() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final res = await context.read<AiService>().exportAchievement(
+          achievementId: widget.achievementId,
+          era: widget.eraKey,
+        );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res is Ok<String>) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: Text('匯出完成',
+              style: AppText.body(size: 13, color: Colors.white)),
+          backgroundColor: AppColors.dark,
+          behavior: SnackBarBehavior.floating,
+        ));
+    }
   }
 
   @override
@@ -349,6 +421,30 @@ class _EraBlockState extends State<_EraBlock> {
               Text(widget.sublabel,
                   style: AppText.caption(size: 10, color: AppColors.muted)),
               const Spacer(),
+              if (_busy)
+                SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: c),
+                )
+              else ...[
+                _HeaderBtn(
+                  icon: LucideIcons.sparkles,
+                  color: c,
+                  onTap: _generate,
+                ),
+                _HeaderBtn(
+                  icon: LucideIcons.download,
+                  color: c,
+                  onTap: _export,
+                ),
+                if (widget.exportPath != null)
+                  _HeaderBtn(
+                    icon: LucideIcons.externalLink,
+                    color: c,
+                    onTap: () => _openExport(context, widget.exportPath!),
+                  ),
+              ],
               GestureDetector(
                 onTap: _editing ? _commit : _startEdit,
                 child: Padding(
@@ -397,19 +493,49 @@ class _EraBlockState extends State<_EraBlock> {
   }
 }
 
+// ─── Header action button (era block + recap card) ───────────────────────────
+
+class _HeaderBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _HeaderBtn({required this.icon, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: Icon(icon, size: 13, color: color.withOpacity(0.85)),
+      ),
+    );
+  }
+}
+
 // ─── Recap card ───────────────────────────────────────────────────────────────
 
-class _RecapCard extends StatelessWidget {
+class _RecapCard extends StatefulWidget {
   final Recap recap;
   const _RecapCard({required this.recap});
 
-  Future<void> _edit(BuildContext context) async {
+  @override
+  State<_RecapCard> createState() => _RecapCardState();
+}
+
+class _RecapCardState extends State<_RecapCard> {
+  bool _busy = false;
+
+  Recap get recap => widget.recap;
+
+  Future<void> _edit() async {
     final result = await _showRecapForm(
       context,
       initialTitle: recap.title,
       initialContent: recap.content,
     );
-    if (result == null || !context.mounted) return;
+    if (result == null || !mounted) return;
     await context.read<RecapRepo>().update(
           Recap(
             id: recap.id,
@@ -421,17 +547,58 @@ class _RecapCard extends StatelessWidget {
         );
   }
 
-  Future<void> _confirmDelete(BuildContext context) async {
+  Future<void> _confirmDelete() async {
     final ok = await _showConfirm(context, '刪除這篇回顧？', '此動作無法復原。');
-    if (ok != true || !context.mounted) return;
+    if (ok != true || !mounted) return;
     await context.read<RecapRepo>().delete(recap.id);
+  }
+
+  Future<void> _generate() async {
+    if (_busy) return;
+    final label = recap.title.trim().isEmpty ? 'recap' : recap.title.trim();
+    setState(() => _busy = true);
+    final res = await context.read<AiService>().generateEraInsight(
+          eraLabel: label,
+          dataSummary: _eraSummary('這篇回顧', recap.content),
+        );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res is Ok<String> && res.value.trim().isNotEmpty) {
+      await context.read<RecapRepo>().update(
+            Recap(
+              id: recap.id,
+              title: recap.title,
+              content: res.value,
+              exportStoragePath: recap.exportStoragePath,
+              createdAt: recap.createdAt,
+            ),
+          );
+    }
+  }
+
+  Future<void> _export() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final res = await context.read<AiService>().exportRecap(recap.id);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res is Ok<String>) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(
+          content: Text('匯出完成',
+              style: AppText.body(size: 13, color: Colors.white)),
+          backgroundColor: AppColors.dark,
+          behavior: SnackBarBehavior.floating,
+        ));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return MrCard(
       leftBorderColor: AppColors.rose,
-      onTap: () => _edit(context),
+      onTap: _edit,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -445,14 +612,39 @@ class _RecapCard extends StatelessWidget {
                       size: 15, weight: FontWeight.w600, color: AppColors.dark),
                 ),
               ),
-              GestureDetector(
-                onTap: () => _confirmDelete(context),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8, top: 1),
-                  child:
-                      Icon(LucideIcons.trash2, size: 15, color: AppColors.muted),
+              if (_busy)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8, top: 1),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: AppColors.muted),
+                  ),
+                )
+              else ...[
+                _HeaderBtn(
+                  icon: LucideIcons.sparkles,
+                  color: AppColors.rose,
+                  onTap: _generate,
                 ),
-              ),
+                _HeaderBtn(
+                  icon: LucideIcons.download,
+                  color: AppColors.muted,
+                  onTap: _export,
+                ),
+                if (recap.exportStoragePath != null)
+                  _HeaderBtn(
+                    icon: LucideIcons.externalLink,
+                    color: AppColors.muted,
+                    onTap: () => _openExport(context, recap.exportStoragePath!),
+                  ),
+                _HeaderBtn(
+                  icon: LucideIcons.trash2,
+                  color: AppColors.muted,
+                  onTap: _confirmDelete,
+                ),
+              ],
             ],
           ),
           if (recap.content.isNotEmpty) ...[

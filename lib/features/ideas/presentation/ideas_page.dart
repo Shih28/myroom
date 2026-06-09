@@ -6,26 +6,64 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_errors.dart';
+import '../../../core/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/mr_card.dart';
+import '../../../shared/ai/domain/ai_resource.dart';
+import '../../../shared/ai/domain/ai_service.dart';
 import '../domain/idea.dart';
 import '../domain/idea_repo.dart';
 import '../domain/pinned_resource.dart';
 
 enum IdeaSub { input, explore }
 
-class IdeasPage extends StatefulWidget {
+class IdeasPage extends StatelessWidget {
   const IdeasPage({super.key});
 
   @override
-  State<IdeasPage> createState() => _IdeasPageState();
+  Widget build(BuildContext context) {
+    // Page-local streams provided ABOVE the stateful body (mirrors RecapPage) so
+    // the body's context can read them; repos come from AuthenticatedScope.
+    return MultiProvider(
+      providers: [
+        StreamProvider<List<Idea>>(
+          create: (c) => c.read<IdeaRepo>().watchIdeas(),
+          initialData: const [],
+          catchError: (c, e) {
+            AppErrors.present(e);
+            return const <Idea>[];
+          },
+        ),
+        StreamProvider<List<PinnedResource>>(
+          create: (c) => c.read<IdeaRepo>().watchPinnedResources(),
+          initialData: const [],
+          catchError: (c, e) {
+            AppErrors.present(e);
+            return const <PinnedResource>[];
+          },
+        ),
+      ],
+      child: const _IdeasView(),
+    );
+  }
 }
 
-class _IdeasPageState extends State<IdeasPage> {
+class _IdeasView extends StatefulWidget {
+  const _IdeasView();
+
+  @override
+  State<_IdeasView> createState() => _IdeasViewState();
+}
+
+class _IdeasViewState extends State<_IdeasView> {
   IdeaSub _sub = IdeaSub.input;
   final _draftCtrl = TextEditingController();
   bool _adding = false;
   final Set<String> _expandedIds = {};
+
+  // Explore tab: AI recommendations fetched on demand (Phase 2).
+  List<AiResource> _recommendations = [];
+  bool _loadingRecs = false;
 
   @override
   void dispose() {
@@ -138,8 +176,46 @@ class _IdeasPageState extends State<IdeasPage> {
     }
   }
 
-  Future<void> _unpin(PinnedResource r) async {
-    await context.read<IdeaRepo>().unpin(r.url);
+  Future<void> _unpin(String url) async {
+    await context.read<IdeaRepo>().unpin(url);
+  }
+
+  /// Fetches AI recommendations from the latest ideas (AI_proxy.md §5).
+  Future<void> _fetchRecs() async {
+    if (_loadingRecs) return;
+    final ideas = context.read<List<Idea>>();
+    if (ideas.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('先記錄一些靈感，才能取得推薦',
+                style: AppText.body(size: 13, color: Colors.white)),
+            backgroundColor: AppColors.dark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      return;
+    }
+    final texts = ideas.take(5).map((i) => i.text).toList();
+    setState(() => _loadingRecs = true);
+    final result = await context.read<AiService>().fetchRecommendations(texts);
+    if (!mounted) return;
+    setState(() {
+      _loadingRecs = false;
+      if (result is Ok<List<AiResource>>) _recommendations = result.value;
+    });
+  }
+
+  Future<void> _pinAiResource(AiResource r) async {
+    await context.read<IdeaRepo>().pin(PinnedResource(
+          id: '',
+          title: r.title,
+          type: r.type,
+          description: r.description,
+          url: r.url,
+          createdAt: DateTime.now(),
+        ));
   }
 
   Future<void> _launchUrl(String url) async {
@@ -163,72 +239,51 @@ class _IdeasPageState extends State<IdeasPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        StreamProvider<List<Idea>>(
-          create: (c) => c.read<IdeaRepo>().watchIdeas(),
-          initialData: const [],
-          catchError: (c, e) {
-            AppErrors.present(e);
-            return const <Idea>[];
-          },
-        ),
-        StreamProvider<List<PinnedResource>>(
-          create: (c) => c.read<IdeaRepo>().watchPinnedResources(),
-          initialData: const [],
-          catchError: (c, e) {
-            AppErrors.present(e);
-            return const <PinnedResource>[];
-          },
-        ),
-      ],
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              padding: const EdgeInsets.all(4),
-              child: Row(
-                children: IdeaSub.values.map((s) {
-                  final active = _sub == s;
-                  final labels = ['✦  記錄靈感', '⊹  探索資源'];
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _sub = s),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: BoxDecoration(
-                          color: active ? AppColors.dark : Colors.transparent,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Center(
-                          child: Text(
-                            labels[s.index],
-                            style: AppText.body(
-                              size: 13,
-                              weight:
-                                  active ? FontWeight.w600 : FontWeight.w400,
-                              color: active ? Colors.white : AppColors.muted,
-                            ),
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            padding: const EdgeInsets.all(4),
+            child: Row(
+              children: IdeaSub.values.map((s) {
+                final active = _sub == s;
+                final labels = ['✦  記錄靈感', '⊹  探索資源'];
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _sub = s),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: active ? AppColors.dark : Colors.transparent,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Center(
+                        child: Text(
+                          labels[s.index],
+                          style: AppText.body(
+                            size: 13,
+                            weight: active ? FontWeight.w600 : FontWeight.w400,
+                            color: active ? Colors.white : AppColors.muted,
                           ),
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
-          Expanded(
-            child: _sub == IdeaSub.input ? _buildInput() : _buildExplore(),
-          ),
-        ],
-      ),
+        ),
+        Expanded(
+          child: _sub == IdeaSub.input ? _buildInput() : _buildExplore(),
+        ),
+      ],
     );
   }
 
@@ -383,12 +438,12 @@ class _IdeasPageState extends State<IdeasPage> {
     );
   }
 
-  /// AI enrichment is filled by the Phase 2 `enrichIdea` trigger. The client
-  /// only renders whatever the trigger has written: a summary + links once
-  /// ready, a subtle "分析中…" while pending, and otherwise nothing extra.
+  /// AI enrichment is filled by the `enrichIdea` trigger. The client only
+  /// renders whatever the trigger has written: a summary + links once ready, a
+  /// subtle "分析中…" while processing, and otherwise nothing extra.
   Widget _buildAiPanel(Idea idea) {
     if (idea.aiSummary == null) {
-      if (idea.aiStatus == 'pending') {
+      if (idea.aiStatus == 'processing') {
         return Row(
           children: [
             Icon(LucideIcons.sparkles,
@@ -486,6 +541,7 @@ class _IdeasPageState extends State<IdeasPage> {
 
   Widget _buildExplore() {
     final pinned = context.watch<List<PinnedResource>>();
+    final pinnedUrls = pinned.map((p) => p.url).toSet();
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
@@ -494,6 +550,41 @@ class _IdeasPageState extends State<IdeasPage> {
         const SizedBox(height: 4),
         Text('根據你的靈感主題為你整理的相關資源', style: AppText.label(size: 12)),
         const SizedBox(height: 16),
+
+        // Fetch button
+        GestureDetector(
+          onTap: _loadingRecs ? null : _fetchRecs,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: _loadingRecs ? AppColors.dark.withOpacity(0.6) : AppColors.dark,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Center(
+              child: _loadingRecs
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.sparkles,
+                            size: 15, color: AppColors.amber),
+                        const SizedBox(width: 8),
+                        Text('取得 AI 推薦',
+                            style: AppText.body(
+                                size: 14,
+                                weight: FontWeight.w600,
+                                color: Colors.white)),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
 
         // Pinned section
         if (pinned.isNotEmpty) ...[
@@ -511,30 +602,73 @@ class _IdeasPageState extends State<IdeasPage> {
           Divider(color: AppColors.border, height: 24),
         ],
 
-        // Phase 1: AI recommendations are not yet available (Phase 2 trigger).
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 48),
-          child: Center(
-            child: Column(
-              children: [
-                Icon(LucideIcons.sparkles,
-                    size: 28, color: AppColors.muted.withOpacity(0.4)),
-                const SizedBox(height: 12),
-                Text(
-                  '推薦功能即將推出',
-                  style: AppText.label(size: 13, color: AppColors.muted),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+        // AI recommendations
+        if (_recommendations.isNotEmpty) ...[
+          Text(
+            '推薦',
+            style: AppText.caption(
+                size: 11,
+                weight: FontWeight.w600,
+                color: AppColors.muted,
+                letterSpacing: 0.8),
+          ),
+          const SizedBox(height: 8),
+          ..._recommendations
+              .map((r) => _buildRecCard(r, pinnedUrls.contains(r.url))),
+        ] else if (!_loadingRecs) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(LucideIcons.sparkles,
+                      size: 28, color: AppColors.muted.withOpacity(0.4)),
+                  const SizedBox(height: 12),
+                  Text(
+                    '點擊上方按鈕，依你的靈感取得推薦',
+                    style: AppText.label(size: 13, color: AppColors.muted),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
 
   Widget _buildResourceCard(PinnedResource r) {
-    final color = _typeColor(r.type);
+    return _resourceCard(
+      title: r.title,
+      type: r.type,
+      description: r.description,
+      url: r.url,
+      isPinned: true,
+      onPinToggle: () => _unpin(r.url),
+    );
+  }
+
+  Widget _buildRecCard(AiResource r, bool isPinned) {
+    return _resourceCard(
+      title: r.title,
+      type: r.type,
+      description: r.description,
+      url: r.url,
+      isPinned: isPinned,
+      onPinToggle: () => isPinned ? _unpin(r.url) : _pinAiResource(r),
+    );
+  }
+
+  Widget _resourceCard({
+    required String title,
+    required String type,
+    required String description,
+    required String url,
+    required bool isPinned,
+    required VoidCallback onPinToggle,
+  }) {
+    final color = _typeColor(type);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: MrCard(
@@ -559,7 +693,7 @@ class _IdeasPageState extends State<IdeasPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(r.title,
+                        child: Text(title,
                             style: AppText.body(
                                 size: 14, weight: FontWeight.w600)),
                       ),
@@ -571,37 +705,39 @@ class _IdeasPageState extends State<IdeasPage> {
                           color: color.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(r.type,
+                        child: Text(type,
                             style: AppText.caption(size: 10, color: color)),
                       ),
                       const SizedBox(width: 6),
-                      // Unpin button
+                      // Pin / unpin toggle
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () => _unpin(r),
+                        onTap: onPinToggle,
                         child: Padding(
                           padding: const EdgeInsets.only(left: 2),
                           child: Icon(
-                            LucideIcons.bookmarkCheck,
+                            isPinned
+                                ? LucideIcons.bookmarkCheck
+                                : LucideIcons.bookmark,
                             size: 15,
-                            color: AppColors.amber,
+                            color: isPinned ? AppColors.amber : AppColors.muted,
                           ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(r.description,
+                  Text(description,
                       style: AppText.label(size: 12, color: AppColors.muted)),
-                  if (r.url.isNotEmpty) ...[
+                  if (url.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     GestureDetector(
-                      onTap: () => _launchUrl(r.url),
+                      onTap: () => _launchUrl(url),
                       child: Row(
                         children: [
                           Expanded(
                             child: Text(
-                              r.url,
+                              url,
                               style: AppText.caption(
                                   size: 10,
                                   color: AppColors.blue.withOpacity(0.8)),

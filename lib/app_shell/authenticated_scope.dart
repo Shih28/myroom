@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_errors.dart';
 import '../core/theme/app_theme.dart';
+import '../shared/ai/data/cloud_function_ai_service.dart';
+import '../shared/ai/domain/ai_service.dart';
 import '../features/calendar/data/firebase_event_repo.dart';
 import '../features/calendar/domain/event_repo.dart';
 import '../features/chat/data/firebase_chat_repo.dart';
@@ -66,6 +69,12 @@ class AuthenticatedScope extends StatelessWidget {
         // directly by the notes page for on-demand attachment download URLs.
         Provider<StorageRepo>(
           create: (c) => FirebaseStorageRepo(c.read<FirebaseStorage>()),
+        ),
+
+        // AI proxy over Cloud Functions callables (uid derived server-side from
+        // the App Check + Auth context; no client key).
+        Provider<AiService>(
+          create: (c) => CloudFunctionAiService(c.read<FirebaseFunctions>()),
         ),
 
         // ── Feature repos (user-scoped) ──

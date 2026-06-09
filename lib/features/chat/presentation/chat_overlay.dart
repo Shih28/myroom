@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/app_errors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/ai/domain/ai_service.dart';
 import '../domain/chat_message.dart';
 import '../domain/chat_repo.dart';
 
@@ -40,6 +41,7 @@ class _ChatView extends StatefulWidget {
 class _ChatViewState extends State<_ChatView> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -60,29 +62,23 @@ class _ChatViewState extends State<_ChatView> {
     });
   }
 
-  /// Phase 1: sending is disabled (messages are written server-side in Phase 2).
-  void _send() {
+  /// Sends the message through the `chat` Cloud Function. The function appends
+  /// the user turn (shown immediately via the stream) and the assistant reply;
+  /// while we await, a typing indicator shows and the input is disabled.
+  Future<void> _send() async {
     final text = _inputCtrl.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _sending) return;
     FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            'AI 助理即將推出',
-            style: AppText.body(size: 13, color: Colors.white),
-          ),
-          backgroundColor: AppColors.dark,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    _inputCtrl.clear();
+    setState(() => _sending = true);
+    await context.read<AiService>().chat(text);
+    if (mounted) setState(() => _sending = false);
   }
 
   @override
   Widget build(BuildContext context) {
     final messages = context.watch<List<ChatMessage>>();
-    if (messages.isNotEmpty) _scrollToBottom();
+    if (messages.isNotEmpty || _sending) _scrollToBottom();
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -133,13 +129,15 @@ class _ChatViewState extends State<_ChatView> {
 
             // Messages
             Expanded(
-              child: messages.isEmpty
+              child: messages.isEmpty && !_sending
                   ? const _EmptyState()
                   : ListView.builder(
                       controller: _scrollCtrl,
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                      itemCount: messages.length,
-                      itemBuilder: (_, idx) => _Bubble(message: messages[idx]),
+                      itemCount: messages.length + (_sending ? 1 : 0),
+                      itemBuilder: (_, idx) => idx < messages.length
+                          ? _Bubble(message: messages[idx])
+                          : const _TypingBubble(),
                     ),
             ),
 
@@ -177,16 +175,24 @@ class _ChatViewState extends State<_ChatView> {
                   ),
                   const SizedBox(width: 6),
                   GestureDetector(
-                    onTap: _send,
+                    onTap: _sending ? null : _send,
                     child: Container(
                       width: 34,
                       height: 34,
                       decoration: BoxDecoration(
-                        color: AppColors.dark,
+                        color: _sending
+                            ? AppColors.dark.withOpacity(0.5)
+                            : AppColors.dark,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(LucideIcons.send,
-                          size: 15, color: Colors.white),
+                      child: _sending
+                          ? const Padding(
+                              padding: EdgeInsets.all(9),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(LucideIcons.send,
+                              size: 15, color: Colors.white),
                     ),
                   ),
                 ],
@@ -233,14 +239,52 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: AppText.body(size: 13, color: AppColors.muted, height: 1.6),
             ),
-            const SizedBox(height: 6),
-            Text(
-              'AI 助理即將推出',
-              textAlign: TextAlign.center,
-              style: AppText.caption(size: 11),
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown at the tail of the thread while the `chat` function is running.
+class _TypingBubble extends StatelessWidget {
+  const _TypingBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(4),
+                bottomRight: Radius.circular(18),
+              ),
+              boxShadow: const [kCardShadow],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 13,
+                  height: 13,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppColors.muted),
+                ),
+                const SizedBox(width: 8),
+                Text('思考中…',
+                    style: AppText.body(size: 13, color: AppColors.muted)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
