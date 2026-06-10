@@ -40,11 +40,7 @@ class MrIconButton extends StatelessWidget {
               : null,
         ),
         child: Center(
-          child: Icon(
-            icon,
-            size: iconSize,
-            color: iconColor ?? AppColors.dark,
-          ),
+          child: Icon(icon, size: iconSize, color: iconColor ?? AppColors.dark),
         ),
       ),
     );

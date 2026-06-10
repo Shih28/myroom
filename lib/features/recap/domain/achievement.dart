@@ -27,7 +27,8 @@ class Achievement {
   });
 
   factory Achievement.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> doc) {
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data() ?? const <String, dynamic>{};
     return Achievement(
       id: doc.id,
@@ -44,24 +45,23 @@ class Achievement {
   /// Client-writable data fields only. No `createdAt` (repo injects it) and no
   /// `*ExportStoragePath` (fn-only).
   Map<String, dynamic> toJson() => {
-        'pastContent': pastContent,
-        'currentContent': currentContent,
-        'futureContent': futureContent,
-      };
+    'pastContent': pastContent,
+    'currentContent': currentContent,
+    'futureContent': futureContent,
+  };
 
   Achievement copyWith({
     String? pastContent,
     String? currentContent,
     String? futureContent,
-  }) =>
-      Achievement(
-        id: id,
-        pastContent: pastContent ?? this.pastContent,
-        currentContent: currentContent ?? this.currentContent,
-        futureContent: futureContent ?? this.futureContent,
-        pastExportStoragePath: pastExportStoragePath,
-        currentExportStoragePath: currentExportStoragePath,
-        futureExportStoragePath: futureExportStoragePath,
-        createdAt: createdAt,
-      );
+  }) => Achievement(
+    id: id,
+    pastContent: pastContent ?? this.pastContent,
+    currentContent: currentContent ?? this.currentContent,
+    futureContent: futureContent ?? this.futureContent,
+    pastExportStoragePath: pastExportStoragePath,
+    currentExportStoragePath: currentExportStoragePath,
+    futureExportStoragePath: futureExportStoragePath,
+    createdAt: createdAt,
+  );
 }

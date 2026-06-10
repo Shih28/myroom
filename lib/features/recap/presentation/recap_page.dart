@@ -8,6 +8,7 @@ import '../../../core/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/mr_add_row.dart';
 import '../../../core/widgets/mr_card.dart';
+import '../../../core/widgets/mr_skeleton.dart';
 import '../../../shared/ai/domain/ai_service.dart';
 import '../../../shared/storage/storage_repo.dart';
 import '../domain/achievement.dart';
@@ -72,60 +73,58 @@ class _RecapBody extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
         // ── Achievements (era summaries) ────────────────────────────────
-        _SectionHeader(
+        const _SectionHeader(
           icon: LucideIcons.compass,
           title: '階段回顧',
           subtitle: '過去、現在與未來的軌跡',
         ),
         const SizedBox(height: 12),
         if (achievements.isEmpty)
-          _EmptyHint(
+          const _EmptyHint(
             icon: LucideIcons.compass,
             text: '還沒有任何階段回顧。\n新增一張卡片，記下你的過去、現在與未來。',
           )
         else
-          ...achievements.map((a) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: _AchievementCard(achievement: a),
-              )),
+          ...achievements.map(
+            (a) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: _AchievementCard(achievement: a),
+            ),
+          ),
         const SizedBox(height: 6),
-        MrAddRow(
-          label: '新增階段回顧',
-          onTap: () => _addAchievement(context),
-        ),
+        MrAddRow(label: '新增階段回顧', onTap: () => _addAchievement(context)),
 
         const SizedBox(height: 30),
 
         // ── Recaps (titled reviews) ─────────────────────────────────────
-        _SectionHeader(
+        const _SectionHeader(
           icon: LucideIcons.bookOpen,
           title: '回顧紀錄',
           subtitle: '為一段時光寫下標題與回顧',
         ),
         const SizedBox(height: 12),
         if (recaps.isEmpty)
-          _EmptyHint(
+          const _EmptyHint(
             icon: LucideIcons.bookOpen,
             text: '還沒有任何回顧紀錄。\n為一段珍貴的時光寫下第一篇吧。',
           )
         else
-          ...recaps.map((r) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _RecapCard(recap: r),
-              )),
+          ...recaps.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _RecapCard(recap: r),
+            ),
+          ),
         const SizedBox(height: 6),
-        MrAddRow(
-          label: '新增回顧',
-          onTap: () => _addRecap(context),
-        ),
+        MrAddRow(label: '新增回顧', onTap: () => _addRecap(context)),
       ],
     );
   }
 
   Future<void> _addAchievement(BuildContext context) async {
     await context.read<AchievementRepo>().add(
-          Achievement(id: '', createdAt: DateTime.now()),
-        );
+      Achievement(id: '', createdAt: DateTime.now()),
+    );
     // Stream re-emits with the new doc.
   }
 
@@ -134,13 +133,13 @@ class _RecapBody extends StatelessWidget {
     if (result == null) return;
     if (!context.mounted) return;
     await context.read<RecapRepo>().add(
-          Recap(
-            id: '',
-            title: result.title,
-            content: result.content,
-            createdAt: DateTime.now(),
-          ),
-        );
+      Recap(
+        id: '',
+        title: result.title,
+        content: result.content,
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 }
 
@@ -166,8 +165,10 @@ class _SectionHeader extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: AppText.display(size: 20, weight: FontWeight.w500)),
+            Text(
+              title,
+              style: AppText.display(size: 20, weight: FontWeight.w500),
+            ),
             const SizedBox(height: 2),
             Text(subtitle, style: AppText.caption(size: 11)),
           ],
@@ -197,13 +198,19 @@ class _EmptyHint extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(icon, size: 26, color: AppColors.mix(AppColors.muted, Colors.white, 0.6)),
+          Icon(
+            icon,
+            size: 26,
+            color: AppColors.mix(AppColors.muted, Colors.white, 0.6),
+          ),
           const SizedBox(height: 10),
           Text(
             text,
             textAlign: TextAlign.center,
-            style: AppText.caption(size: 12, color: AppColors.muted)
-                .copyWith(height: 1.7),
+            style: AppText.caption(
+              size: 12,
+              color: AppColors.muted,
+            ).copyWith(height: 1.7),
           ),
         ],
       ),
@@ -232,17 +239,30 @@ class _AchievementCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.milestone, size: 14, color: AppColors.dark),
+              const Icon(
+                LucideIcons.milestone,
+                size: 14,
+                color: AppColors.dark,
+              ),
               const SizedBox(width: 7),
-              Text('階段回顧',
-                  style: AppText.body(
-                      size: 14, weight: FontWeight.w600, color: AppColors.dark)),
+              Text(
+                '階段回顧',
+                style: AppText.body(
+                  size: 14,
+                  weight: FontWeight.w600,
+                  color: AppColors.dark,
+                ),
+              ),
               const Spacer(),
               GestureDetector(
                 onTap: () => _confirmDelete(context),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(LucideIcons.trash2, size: 15, color: AppColors.muted),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    LucideIcons.trash2,
+                    size: 15,
+                    color: AppColors.muted,
+                  ),
                 ),
               ),
             ],
@@ -258,8 +278,8 @@ class _AchievementCard extends StatelessWidget {
             eraKey: 'past',
             exportPath: achievement.pastExportStoragePath,
             onSave: (text) => context.read<AchievementRepo>().update(
-                  achievement.copyWith(pastContent: text),
-                ),
+              achievement.copyWith(pastContent: text),
+            ),
           ),
           const SizedBox(height: 12),
           _EraBlock(
@@ -272,8 +292,8 @@ class _AchievementCard extends StatelessWidget {
             eraKey: 'current',
             exportPath: achievement.currentExportStoragePath,
             onSave: (text) => context.read<AchievementRepo>().update(
-                  achievement.copyWith(currentContent: text),
-                ),
+              achievement.copyWith(currentContent: text),
+            ),
           ),
           const SizedBox(height: 12),
           _EraBlock(
@@ -286,8 +306,8 @@ class _AchievementCard extends StatelessWidget {
             eraKey: 'future',
             exportPath: achievement.futureExportStoragePath,
             onSave: (text) => context.read<AchievementRepo>().update(
-                  achievement.copyWith(futureContent: text),
-                ),
+              achievement.copyWith(futureContent: text),
+            ),
           ),
         ],
       ),
@@ -328,8 +348,10 @@ class _EraBlock extends StatefulWidget {
 class _EraBlockState extends State<_EraBlock> {
   bool _editing = false;
   bool _busy = false;
-  late final TextEditingController _ctrl =
-      TextEditingController(text: widget.value);
+  bool _generating = false;
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
 
   @override
   void didUpdateWidget(covariant _EraBlock old) {
@@ -359,13 +381,19 @@ class _EraBlockState extends State<_EraBlock> {
 
   Future<void> _generate() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _generating = true;
+    });
     final res = await context.read<AiService>().generateEraInsight(
-          eraLabel: widget.label,
-          dataSummary: _eraSummary(widget.label, widget.value),
-        );
+      eraLabel: widget.label,
+      dataSummary: _eraSummary(widget.label, widget.value),
+    );
     if (!mounted) return;
-    setState(() => _busy = false);
+    setState(() {
+      _busy = false;
+      _generating = false;
+    });
     if (res is Ok<String> && res.value.trim().isNotEmpty) {
       _ctrl.text = res.value;
       widget.onSave(res.value); // persists; stream refreshes value
@@ -376,20 +404,24 @@ class _EraBlockState extends State<_EraBlock> {
     if (_busy) return;
     setState(() => _busy = true);
     final res = await context.read<AiService>().exportAchievement(
-          achievementId: widget.achievementId,
-          era: widget.eraKey,
-        );
+      achievementId: widget.achievementId,
+      era: widget.eraKey,
+    );
     if (!mounted) return;
     setState(() => _busy = false);
     if (res is Ok<String>) {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(SnackBar(
-          content: Text('匯出完成',
-              style: AppText.body(size: 13, color: Colors.white)),
-          backgroundColor: AppColors.dark,
-          behavior: SnackBarBehavior.floating,
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '匯出完成',
+              style: AppText.body(size: 13, color: Colors.white),
+            ),
+            backgroundColor: AppColors.dark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 
@@ -414,12 +446,19 @@ class _EraBlockState extends State<_EraBlock> {
                 decoration: BoxDecoration(color: c, shape: BoxShape.circle),
               ),
               const SizedBox(width: 7),
-              Text(widget.label,
-                  style: AppText.caption(
-                      size: 12, weight: FontWeight.w700, color: c)),
+              Text(
+                widget.label,
+                style: AppText.caption(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: c,
+                ),
+              ),
               const SizedBox(width: 6),
-              Text(widget.sublabel,
-                  style: AppText.caption(size: 10, color: AppColors.muted)),
+              Text(
+                widget.sublabel,
+                style: AppText.caption(size: 10, color: AppColors.muted),
+              ),
               const Spacer(),
               if (_busy)
                 SizedBox(
@@ -459,7 +498,12 @@ class _EraBlockState extends State<_EraBlock> {
             ],
           ),
           const SizedBox(height: 8),
-          if (_editing)
+          if (_generating)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 2),
+              child: MrSkeletonLines(lines: 3, lineHeight: 10),
+            )
+          else if (_editing)
             TextField(
               controller: _ctrl,
               autofocus: true,
@@ -468,8 +512,11 @@ class _EraBlockState extends State<_EraBlock> {
               style: AppText.body(size: 13, height: 1.7),
               decoration: InputDecoration(
                 hintText: widget.hint,
-                hintStyle:
-                    AppText.body(size: 13, color: AppColors.muted, height: 1.7),
+                hintStyle: AppText.body(
+                  size: 13,
+                  color: AppColors.muted,
+                  height: 1.7,
+                ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -483,8 +530,16 @@ class _EraBlockState extends State<_EraBlock> {
               child: Text(
                 widget.value.isEmpty ? widget.hint : widget.value,
                 style: widget.value.isEmpty
-                    ? AppText.body(size: 13, color: AppColors.muted, height: 1.7)
-                    : AppText.body(size: 13, color: AppColors.dark, height: 1.7),
+                    ? AppText.body(
+                        size: 13,
+                        color: AppColors.muted,
+                        height: 1.7,
+                      )
+                    : AppText.body(
+                        size: 13,
+                        color: AppColors.dark,
+                        height: 1.7,
+                      ),
               ),
             ),
         ],
@@ -499,7 +554,11 @@ class _HeaderBtn extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  const _HeaderBtn({required this.icon, required this.color, required this.onTap});
+  const _HeaderBtn({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -526,6 +585,7 @@ class _RecapCard extends StatefulWidget {
 
 class _RecapCardState extends State<_RecapCard> {
   bool _busy = false;
+  bool _generating = false;
 
   Recap get recap => widget.recap;
 
@@ -537,14 +597,14 @@ class _RecapCardState extends State<_RecapCard> {
     );
     if (result == null || !mounted) return;
     await context.read<RecapRepo>().update(
-          Recap(
-            id: recap.id,
-            title: result.title,
-            content: result.content,
-            exportStoragePath: recap.exportStoragePath,
-            createdAt: recap.createdAt,
-          ),
-        );
+      Recap(
+        id: recap.id,
+        title: result.title,
+        content: result.content,
+        exportStoragePath: recap.exportStoragePath,
+        createdAt: recap.createdAt,
+      ),
+    );
   }
 
   Future<void> _confirmDelete() async {
@@ -556,23 +616,29 @@ class _RecapCardState extends State<_RecapCard> {
   Future<void> _generate() async {
     if (_busy) return;
     final label = recap.title.trim().isEmpty ? 'recap' : recap.title.trim();
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _generating = true;
+    });
     final res = await context.read<AiService>().generateEraInsight(
-          eraLabel: label,
-          dataSummary: _eraSummary('這篇回顧', recap.content),
-        );
+      eraLabel: label,
+      dataSummary: _eraSummary('這篇回顧', recap.content),
+    );
     if (!mounted) return;
-    setState(() => _busy = false);
+    setState(() {
+      _busy = false;
+      _generating = false;
+    });
     if (res is Ok<String> && res.value.trim().isNotEmpty) {
       await context.read<RecapRepo>().update(
-            Recap(
-              id: recap.id,
-              title: recap.title,
-              content: res.value,
-              exportStoragePath: recap.exportStoragePath,
-              createdAt: recap.createdAt,
-            ),
-          );
+        Recap(
+          id: recap.id,
+          title: recap.title,
+          content: res.value,
+          exportStoragePath: recap.exportStoragePath,
+          createdAt: recap.createdAt,
+        ),
+      );
     }
   }
 
@@ -585,12 +651,16 @@ class _RecapCardState extends State<_RecapCard> {
     if (res is Ok<String>) {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(SnackBar(
-          content: Text('匯出完成',
-              style: AppText.body(size: 13, color: Colors.white)),
-          backgroundColor: AppColors.dark,
-          behavior: SnackBarBehavior.floating,
-        ));
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              '匯出完成',
+              style: AppText.body(size: 13, color: Colors.white),
+            ),
+            backgroundColor: AppColors.dark,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     }
   }
 
@@ -609,7 +679,10 @@ class _RecapCardState extends State<_RecapCard> {
                 child: Text(
                   recap.title.isEmpty ? '無標題' : recap.title,
                   style: AppText.body(
-                      size: 15, weight: FontWeight.w600, color: AppColors.dark),
+                    size: 15,
+                    weight: FontWeight.w600,
+                    color: AppColors.dark,
+                  ),
                 ),
               ),
               if (_busy)
@@ -619,7 +692,9 @@ class _RecapCardState extends State<_RecapCard> {
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.muted),
+                      strokeWidth: 2,
+                      color: AppColors.muted,
+                    ),
                   ),
                 )
               else ...[
@@ -647,11 +722,18 @@ class _RecapCardState extends State<_RecapCard> {
               ],
             ],
           ),
-          if (recap.content.isNotEmpty) ...[
+          if (_generating) ...[
+            const SizedBox(height: 9),
+            const MrSkeletonLines(lines: 2, lineHeight: 10),
+          ] else if (recap.content.isNotEmpty) ...[
             const SizedBox(height: 7),
             Text(
               recap.content,
-              style: AppText.body(size: 13, color: AppColors.muted, height: 1.65),
+              style: AppText.body(
+                size: 13,
+                color: AppColors.muted,
+                height: 1.65,
+              ),
             ),
           ],
         ],
@@ -686,7 +768,11 @@ Future<_RecapFormResult?> _showRecapForm(
     builder: (ctx) {
       return Padding(
         padding: EdgeInsets.fromLTRB(
-            20, 18, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          20,
+          18,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -727,9 +813,9 @@ Future<_RecapFormResult?> _showRecapForm(
                   Navigator.of(ctx).pop();
                   return;
                 }
-                Navigator.of(ctx).pop(
-                  _RecapFormResult(title, contentCtrl.text.trim()),
-                );
+                Navigator.of(
+                  ctx,
+                ).pop(_RecapFormResult(title, contentCtrl.text.trim()));
               },
               child: Container(
                 height: 48,
@@ -738,11 +824,14 @@ Future<_RecapFormResult?> _showRecapForm(
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
-                  child: Text('儲存',
-                      style: AppText.body(
-                          size: 15,
-                          weight: FontWeight.w600,
-                          color: Colors.white)),
+                  child: Text(
+                    '儲存',
+                    style: AppText.body(
+                      size: 15,
+                      weight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -784,7 +873,11 @@ class _SheetField extends StatelessWidget {
         style: AppText.body(size: 14, height: 1.6),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: AppText.body(size: 14, color: AppColors.muted, height: 1.6),
+          hintStyle: AppText.body(
+            size: 14,
+            color: AppColors.muted,
+            height: 1.6,
+          ),
           border: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
@@ -802,18 +895,28 @@ Future<bool?> _showConfirm(BuildContext context, String title, String body) {
     builder: (ctx) => AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text(title, style: AppText.display(size: 20)),
-      content: Text(body, style: AppText.body(size: 13, color: AppColors.muted)),
+      content: Text(
+        body,
+        style: AppText.body(size: 13, color: AppColors.muted),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(false),
-          child:
-              Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
+          child: Text(
+            '取消',
+            style: AppText.body(size: 14, color: AppColors.muted),
+          ),
         ),
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(true),
-          child: Text('刪除',
-              style: AppText.body(
-                  size: 14, weight: FontWeight.w700, color: AppColors.rose)),
+          child: Text(
+            '刪除',
+            style: AppText.body(
+              size: 14,
+              weight: FontWeight.w700,
+              color: AppColors.rose,
+            ),
+          ),
         ),
       ],
     ),

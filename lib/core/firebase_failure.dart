@@ -24,13 +24,12 @@ Failure mapFirebase(Object e) {
 }
 
 String? _authMessage(String code) => switch (code) {
-      'invalid-email' => 'Email 格式不正確',
-      'user-disabled' => '此帳號已被停用',
-      'user-not-found' || 'wrong-password' || 'invalid-credential' =>
-        '帳號或密碼錯誤',
-      'email-already-in-use' => '此 Email 已被註冊',
-      'weak-password' => '密碼強度不足（至少 6 碼）',
-      'requires-recent-login' => '請重新登入後再試一次',
-      'network-request-failed' => '網路連線異常，請稍後再試',
-      _ => null,
-    };
+  'invalid-email' => 'Email 格式不正確',
+  'user-disabled' => '此帳號已被停用',
+  'user-not-found' || 'wrong-password' || 'invalid-credential' => '帳號或密碼錯誤',
+  'email-already-in-use' => '此 Email 已被註冊',
+  'weak-password' => '密碼強度不足（至少 6 碼）',
+  'requires-recent-login' => '請重新登入後再試一次',
+  'network-request-failed' => '網路連線異常，請稍後再試',
+  _ => null,
+};

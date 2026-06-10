@@ -9,6 +9,7 @@ import '../../../core/app_errors.dart';
 import '../../../core/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/mr_card.dart';
+import '../../../core/widgets/mr_skeleton.dart';
 import '../../../shared/ai/domain/ai_resource.dart';
 import '../../../shared/ai/domain/ai_service.dart';
 import '../domain/idea.dart';
@@ -91,21 +92,28 @@ class _IdeasViewState extends State<_IdeasView> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title:
-            Text('刪除靈感', style: AppText.body(size: 16, weight: FontWeight.w600)),
+        title: Text(
+          '刪除靈感',
+          style: AppText.body(size: 16, weight: FontWeight.w600),
+        ),
         content: Text('確定刪除這份靈感？', style: AppText.body(size: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child:
-                Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
+            child: Text(
+              '取消',
+              style: AppText.body(size: 14, color: AppColors.muted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
               '刪除',
               style: AppText.body(
-                  size: 14, weight: FontWeight.w600, color: AppColors.rose),
+                size: 14,
+                weight: FontWeight.w600,
+                color: AppColors.rose,
+              ),
             ),
           ),
         ],
@@ -124,8 +132,10 @@ class _IdeasViewState extends State<_IdeasView> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title:
-            Text('編輯靈感', style: AppText.body(size: 16, weight: FontWeight.w600)),
+        title: Text(
+          '編輯靈感',
+          style: AppText.body(size: 16, weight: FontWeight.w600),
+        ),
         content: TextField(
           controller: ctrl,
           maxLines: 4,
@@ -145,16 +155,20 @@ class _IdeasViewState extends State<_IdeasView> {
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.dark),
             ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
           ),
           style: AppText.body(size: 14, height: 1.55),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child:
-                Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
+            child: Text(
+              '取消',
+              style: AppText.body(size: 14, color: AppColors.muted),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -165,7 +179,10 @@ class _IdeasViewState extends State<_IdeasView> {
             child: Text(
               '儲存',
               style: AppText.body(
-                  size: 14, weight: FontWeight.w600, color: AppColors.dark),
+                size: 14,
+                weight: FontWeight.w600,
+                color: AppColors.dark,
+              ),
             ),
           ),
         ],
@@ -189,8 +206,10 @@ class _IdeasViewState extends State<_IdeasView> {
         ..clearSnackBars()
         ..showSnackBar(
           SnackBar(
-            content: Text('先記錄一些靈感，才能取得推薦',
-                style: AppText.body(size: 13, color: Colors.white)),
+            content: Text(
+              '先記錄一些靈感，才能取得推薦',
+              style: AppText.body(size: 13, color: Colors.white),
+            ),
             backgroundColor: AppColors.dark,
             behavior: SnackBarBehavior.floating,
           ),
@@ -208,14 +227,16 @@ class _IdeasViewState extends State<_IdeasView> {
   }
 
   Future<void> _pinAiResource(AiResource r) async {
-    await context.read<IdeaRepo>().pin(PinnedResource(
-          id: '',
-          title: r.title,
-          type: r.type,
-          description: r.description,
-          url: r.url,
-          createdAt: DateTime.now(),
-        ));
+    await context.read<IdeaRepo>().pin(
+      PinnedResource(
+        id: '',
+        title: r.title,
+        type: r.type,
+        description: r.description,
+        url: r.url,
+        createdAt: DateTime.now(),
+      ),
+    );
   }
 
   Future<void> _launchUrl(String url) async {
@@ -228,12 +249,12 @@ class _IdeasViewState extends State<_IdeasView> {
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
   Color _typeColor(String type) => switch (type) {
-        '書籍' => AppColors.sage,
-        '文章' => AppColors.blue,
-        '工具' => AppColors.amber,
-        '課程' => AppColors.rose,
-        _ => AppColors.muted,
-      };
+    '書籍' => AppColors.sage,
+    '文章' => AppColors.blue,
+    '工具' => AppColors.amber,
+    '課程' => AppColors.rose,
+    _ => AppColors.muted,
+  };
 
   // ── Build ────────────────────────────────────────────────────────────────────
 
@@ -300,7 +321,8 @@ class _IdeasViewState extends State<_IdeasView> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Focus(
-                onKeyEvent: (kIsWeb &&
+                onKeyEvent:
+                    (kIsWeb &&
                         defaultTargetPlatform != TargetPlatform.android &&
                         defaultTargetPlatform != TargetPlatform.iOS)
                     ? (FocusNode _, KeyEvent event) {
@@ -332,11 +354,14 @@ class _IdeasViewState extends State<_IdeasView> {
                 onTap: _adding ? null : _addIdea,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color:
-                        _adding ? AppColors.dark.withOpacity(0.6) : AppColors.dark,
+                    color: _adding
+                        ? AppColors.dark.withOpacity(0.6)
+                        : AppColors.dark,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: _adding
@@ -344,13 +369,18 @@ class _IdeasViewState extends State<_IdeasView> {
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : Text('新增',
+                      : Text(
+                          '新增',
                           style: AppText.body(
-                              size: 13,
-                              weight: FontWeight.w500,
-                              color: Colors.white)),
+                            size: 13,
+                            weight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -384,35 +414,45 @@ class _IdeasViewState extends State<_IdeasView> {
                         child: Center(
                           child: Text(
                             '${i + 1}',
-                            style:
-                                AppText.body(size: 13, weight: FontWeight.w600),
+                            style: AppText.body(
+                              size: 13,
+                              weight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(idea.text,
-                            style: AppText.body(size: 14, height: 1.55)),
+                        child: Text(
+                          idea.text,
+                          style: AppText.body(size: 14, height: 1.55),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       // Edit button — isolated from expand tap
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _editIdea(idea),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 4),
-                          child: Icon(LucideIcons.pencil,
-                              size: 14, color: AppColors.muted),
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 4),
+                          child: Icon(
+                            LucideIcons.pencil,
+                            size: 14,
+                            color: AppColors.muted,
+                          ),
                         ),
                       ),
                       // Delete button — isolated from expand tap
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _deleteIdea(idea.id),
-                        child: Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Icon(LucideIcons.trash2,
-                              size: 14, color: AppColors.muted),
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 6),
+                          child: Icon(
+                            LucideIcons.trash2,
+                            size: 14,
+                            color: AppColors.muted,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 2),
@@ -444,14 +484,37 @@ class _IdeasViewState extends State<_IdeasView> {
   Widget _buildAiPanel(Idea idea) {
     if (idea.aiSummary == null) {
       if (idea.aiStatus == 'processing') {
-        return Row(
-          children: [
-            Icon(LucideIcons.sparkles,
-                size: 13, color: AppColors.amber.withOpacity(0.7)),
-            const SizedBox(width: 6),
-            Text('分析中…',
-                style: AppText.caption(size: 12, color: AppColors.muted)),
-          ],
+        // Skeleton placeholder while the `enrichIdea` trigger fills the summary.
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    LucideIcons.sparkles,
+                    size: 13,
+                    color: AppColors.amber.withOpacity(0.7),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'AI 分析中…',
+                    style: AppText.caption(size: 12, color: AppColors.muted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const MrSkeletonLines(lines: 2),
+              const SizedBox(height: 12),
+              const MrSkeletonBox(height: 11, width: 140),
+            ],
+          ),
         );
       }
       return const SizedBox.shrink();
@@ -469,15 +532,20 @@ class _IdeasViewState extends State<_IdeasView> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(LucideIcons.sparkles, size: 13, color: AppColors.amber),
+              const Icon(
+                LucideIcons.sparkles,
+                size: 13,
+                color: AppColors.amber,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   idea.aiSummary!,
                   style: AppText.body(
-                      size: 13,
-                      color: Colors.white.withOpacity(0.9),
-                      height: 1.6),
+                    size: 13,
+                    color: Colors.white.withOpacity(0.9),
+                    height: 1.6,
+                  ),
                 ),
               ),
             ],
@@ -486,51 +554,61 @@ class _IdeasViewState extends State<_IdeasView> {
             const SizedBox(height: 10),
             Container(height: 1, color: Colors.white.withOpacity(0.1)),
             const SizedBox(height: 10),
-            ...idea.links.map((link) => GestureDetector(
-                  onTap: () => _launchUrl(link.url),
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(LucideIcons.link,
-                            size: 12, color: AppColors.amber.withOpacity(0.7)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      link.title,
-                                      style: AppText.body(
-                                          size: 12,
-                                          weight: FontWeight.w600,
-                                          color: Colors.white.withOpacity(0.9)),
+            ...idea.links.map(
+              (link) => GestureDetector(
+                onTap: () => _launchUrl(link.url),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        LucideIcons.link,
+                        size: 12,
+                        color: AppColors.amber.withOpacity(0.7),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    link.title,
+                                    style: AppText.body(
+                                      size: 12,
+                                      weight: FontWeight.w600,
+                                      color: Colors.white.withOpacity(0.9),
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  Icon(LucideIcons.externalLink,
-                                      size: 10,
-                                      color: AppColors.amber.withOpacity(0.6)),
-                                ],
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  LucideIcons.externalLink,
+                                  size: 10,
+                                  color: AppColors.amber.withOpacity(0.6),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              link.url,
+                              style: AppText.caption(
+                                size: 11,
+                                color: AppColors.muted,
                               ),
-                              Text(
-                                link.url,
-                                style: AppText.caption(
-                                    size: 11, color: AppColors.muted),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                )),
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -557,7 +635,9 @@ class _IdeasViewState extends State<_IdeasView> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: _loadingRecs ? AppColors.dark.withOpacity(0.6) : AppColors.dark,
+              color: _loadingRecs
+                  ? AppColors.dark.withOpacity(0.6)
+                  : AppColors.dark,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
@@ -566,19 +646,27 @@ class _IdeasViewState extends State<_IdeasView> {
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(LucideIcons.sparkles,
-                            size: 15, color: AppColors.amber),
+                        const Icon(
+                          LucideIcons.sparkles,
+                          size: 15,
+                          color: AppColors.amber,
+                        ),
                         const SizedBox(width: 8),
-                        Text('取得 AI 推薦',
-                            style: AppText.body(
-                                size: 14,
-                                weight: FontWeight.w600,
-                                color: Colors.white)),
+                        Text(
+                          '取得 AI 推薦',
+                          style: AppText.body(
+                            size: 14,
+                            weight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
                       ],
                     ),
             ),
@@ -591,15 +679,16 @@ class _IdeasViewState extends State<_IdeasView> {
           Text(
             '已釘選',
             style: AppText.caption(
-                size: 11,
-                weight: FontWeight.w600,
-                color: AppColors.muted,
-                letterSpacing: 0.8),
+              size: 11,
+              weight: FontWeight.w600,
+              color: AppColors.muted,
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 8),
           ...pinned.map((r) => _buildResourceCard(r)),
           const SizedBox(height: 4),
-          Divider(color: AppColors.border, height: 24),
+          const Divider(color: AppColors.border, height: 24),
         ],
 
         // AI recommendations
@@ -607,22 +696,27 @@ class _IdeasViewState extends State<_IdeasView> {
           Text(
             '推薦',
             style: AppText.caption(
-                size: 11,
-                weight: FontWeight.w600,
-                color: AppColors.muted,
-                letterSpacing: 0.8),
+              size: 11,
+              weight: FontWeight.w600,
+              color: AppColors.muted,
+              letterSpacing: 0.8,
+            ),
           ),
           const SizedBox(height: 8),
-          ..._recommendations
-              .map((r) => _buildRecCard(r, pinnedUrls.contains(r.url))),
+          ..._recommendations.map(
+            (r) => _buildRecCard(r, pinnedUrls.contains(r.url)),
+          ),
         ] else if (!_loadingRecs) ...[
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
               child: Column(
                 children: [
-                  Icon(LucideIcons.sparkles,
-                      size: 28, color: AppColors.muted.withOpacity(0.4)),
+                  Icon(
+                    LucideIcons.sparkles,
+                    size: 28,
+                    color: AppColors.muted.withOpacity(0.4),
+                  ),
                   const SizedBox(height: 12),
                   Text(
                     '點擊上方按鈕，依你的靈感取得推薦',
@@ -693,20 +787,28 @@ class _IdeasViewState extends State<_IdeasView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(title,
-                            style: AppText.body(
-                                size: 14, weight: FontWeight.w600)),
+                        child: Text(
+                          title,
+                          style: AppText.body(
+                            size: 14,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2),
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: color.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(type,
-                            style: AppText.caption(size: 10, color: color)),
+                        child: Text(
+                          type,
+                          style: AppText.caption(size: 10, color: color),
+                        ),
                       ),
                       const SizedBox(width: 6),
                       // Pin / unpin toggle
@@ -727,8 +829,10 @@ class _IdeasViewState extends State<_IdeasView> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(description,
-                      style: AppText.label(size: 12, color: AppColors.muted)),
+                  Text(
+                    description,
+                    style: AppText.label(size: 12, color: AppColors.muted),
+                  ),
                   if (url.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     GestureDetector(
@@ -739,15 +843,19 @@ class _IdeasViewState extends State<_IdeasView> {
                             child: Text(
                               url,
                               style: AppText.caption(
-                                  size: 10,
-                                  color: AppColors.blue.withOpacity(0.8)),
+                                size: 10,
+                                color: AppColors.blue.withOpacity(0.8),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Icon(LucideIcons.externalLink,
-                              size: 10, color: AppColors.blue.withOpacity(0.6)),
+                          Icon(
+                            LucideIcons.externalLink,
+                            size: 10,
+                            color: AppColors.blue.withOpacity(0.6),
+                          ),
                         ],
                       ),
                     ),

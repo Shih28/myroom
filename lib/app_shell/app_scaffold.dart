@@ -119,8 +119,14 @@ class _AppScaffoldState extends State<AppScaffold> {
             onTap: () => context.push(Routes.add),
           ),
           const Spacer(),
-          Text('myroom',
-              style: AppText.display(size: 23, weight: FontWeight.w400, italic: true)),
+          Text(
+            'myroom',
+            style: AppText.display(
+              size: 23,
+              weight: FontWeight.w400,
+              italic: true,
+            ),
+          ),
           const Spacer(),
           Row(
             children: [

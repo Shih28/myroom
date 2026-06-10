@@ -34,9 +34,9 @@ class FirebaseNoteRepo implements NoteRepo {
     } else {
       query = _col.orderBy('dateKey').orderBy('createdAt', descending: true);
     }
-    return query
-        .snapshots()
-        .map((s) => s.docs.map(Note.fromFirestore).toList());
+    return query.snapshots().map(
+      (s) => s.docs.map(Note.fromFirestore).toList(),
+    );
   }
 
   @override
@@ -48,11 +48,11 @@ class FirebaseNoteRepo implements NoteRepo {
 
   @override
   Stream<Set<String>> watchNoteDateKeys() => _col.snapshots().map(
-        (s) => s.docs
-            .map((d) => (d.data()['dateKey'] as String?) ?? '')
-            .where((k) => k.isNotEmpty)
-            .toSet(),
-      );
+    (s) => s.docs
+        .map((d) => (d.data()['dateKey'] as String?) ?? '')
+        .where((k) => k.isNotEmpty)
+        .toSet(),
+  );
 
   @override
   Future<Result<String>> add(
@@ -64,7 +64,8 @@ class FirebaseNoteRepo implements NoteRepo {
       final noteId = ref.id;
 
       final uploaded = <NoteAttachment>[];
-      final extractedWrites = <(String attId, String filename, String summary)>[];
+      final extractedWrites =
+          <(String attId, String filename, String summary)>[];
 
       for (final a in attachments) {
         final attId = sha256.convert(a.bytes).toString();
@@ -77,15 +78,16 @@ class FirebaseNoteRepo implements NoteRepo {
         );
         switch (up) {
           case Ok(value: final file):
-            uploaded.add(NoteAttachment(
-              type: a.type,
-              filename: a.filename,
-              storagePath: file.storagePath,
-              attId: attId,
-            ));
+            uploaded.add(
+              NoteAttachment(
+                type: a.type,
+                filename: a.filename,
+                storagePath: file.storagePath,
+                attId: attId,
+              ),
+            );
             if (a.extractedText != null && a.type != 'image') {
-              extractedWrites
-                  .add((attId, a.filename, a.extractedText!));
+              extractedWrites.add((attId, a.filename, a.extractedText!));
             }
           case Err(failure: final f):
             // Upload error already surfaced by StorageRepo; abort the add.
@@ -101,10 +103,10 @@ class FirebaseNoteRepo implements NoteRepo {
       });
 
       for (final w in extractedWrites) {
-        await ref
-            .collection('extracted_texts')
-            .doc(w.$1)
-            .set({'filename': w.$2, 'summary': w.$3});
+        await ref.collection('extracted_texts').doc(w.$1).set({
+          'filename': w.$2,
+          'summary': w.$3,
+        });
       }
 
       return Ok(noteId);

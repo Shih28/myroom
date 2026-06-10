@@ -20,9 +20,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) usePathUrlStrategy();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   if (_useEmulators) {
     await _connectEmulators();
@@ -30,10 +28,12 @@ void main() async {
 
   await _activateAppCheck();
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
 
   runApp(const MyRoomApp());
 }
@@ -42,8 +42,8 @@ void main() async {
 /// localhost.
 String get _emulatorHost =>
     (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-        ? '10.0.2.2'
-        : 'localhost';
+    ? '10.0.2.2'
+    : 'localhost';
 
 Future<void> _connectEmulators() async {
   final host = _emulatorHost;
@@ -51,8 +51,9 @@ Future<void> _connectEmulators() async {
     await FirebaseAuth.instance.useAuthEmulator(host, 9099);
     FirebaseFirestore.instance.useFirestoreEmulator(host, 8080);
     await FirebaseStorage.instance.useStorageEmulator(host, 9199);
-    FirebaseFunctions.instanceFor(region: kFunctionsRegion)
-        .useFunctionsEmulator(host, 5001);
+    FirebaseFunctions.instanceFor(
+      region: kFunctionsRegion,
+    ).useFunctionsEmulator(host, 5001);
   } catch (e) {
     debugPrint('Emulator wiring skipped: $e');
   }
@@ -63,10 +64,10 @@ Future<void> _activateAppCheck() async {
     await FirebaseAppCheck.instance.activate(
       // Debug providers for local/dev (incl. Windows, which has no official
       // provider). Swap to real providers via release config before shipping.
-      androidProvider:
-          kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-      appleProvider:
-          kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
+      androidProvider: kDebugMode
+          ? AndroidProvider.debug
+          : AndroidProvider.playIntegrity,
+      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
       webProvider: kDebugMode
           ? ReCaptchaEnterpriseProvider('app-check-debug-token-placeholder')
           : ReCaptchaEnterpriseProvider('RECAPTCHA_ENTERPRISE_SITE_KEY'),

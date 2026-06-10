@@ -51,16 +51,16 @@ class _LoginPageState extends State<LoginPage> {
   void _resetPassword() {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請先輸入 Email')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('請先輸入 Email')));
       return;
     }
     _run(() => _auth.sendPasswordReset(email)).then((_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('重設密碼信件已寄出')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('重設密碼信件已寄出')));
       }
     });
   }
@@ -87,20 +87,30 @@ class _LoginPageState extends State<LoginPage> {
                         color: AppColors.dark,
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: const Icon(LucideIcons.house,
-                          color: Colors.white, size: 28),
+                      child: const Icon(
+                        LucideIcons.house,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Center(
-                    child: Text('myroom',
-                        style: AppText.display(
-                            size: 34, italic: true, weight: FontWeight.w400)),
+                    child: Text(
+                      'myroom',
+                      style: AppText.display(
+                        size: 34,
+                        italic: true,
+                        weight: FontWeight.w400,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Center(
-                    child: Text(_isSignUp ? '建立你的個人空間' : '歡迎回來',
-                        style: AppText.caption(size: 12)),
+                    child: Text(
+                      _isSignUp ? '建立你的個人空間' : '歡迎回來',
+                      style: AppText.caption(size: 12),
+                    ),
                   ),
                   const SizedBox(height: 32),
                   _field(
@@ -123,8 +133,13 @@ class _LoginPageState extends State<LoginPage> {
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: _busy ? null : _resetPassword,
-                        child: Text('忘記密碼？',
-                            style: AppText.caption(size: 12, color: AppColors.muted)),
+                        child: Text(
+                          '忘記密碼？',
+                          style: AppText.caption(
+                            size: 12,
+                            color: AppColors.muted,
+                          ),
+                        ),
                       ),
                     ),
                   const SizedBox(height: 8),
@@ -171,9 +186,10 @@ class _LoginPageState extends State<LoginPage> {
                             TextSpan(
                               text: _isSignUp ? '登入' : '註冊',
                               style: AppText.caption(
-                                  size: 12,
-                                  weight: FontWeight.w700,
-                                  color: AppColors.dark),
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: AppColors.dark,
+                              ),
                             ),
                           ],
                         ),
@@ -187,7 +203,9 @@ class _LoginPageState extends State<LoginPage> {
                         width: 22,
                         height: 22,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppColors.dark),
+                          strokeWidth: 2,
+                          color: AppColors.dark,
+                        ),
                       ),
                     ),
                   ],
@@ -250,9 +268,14 @@ class _LoginPageState extends State<LoginPage> {
           borderRadius: BorderRadius.circular(14),
         ),
         child: Center(
-          child: Text(label,
-              style: AppText.body(
-                  size: 15, weight: FontWeight.w600, color: Colors.white)),
+          child: Text(
+            label,
+            style: AppText.body(
+              size: 15,
+              weight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
         ),
       ),
     );
@@ -277,8 +300,7 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             Icon(icon, size: 18, color: AppColors.dark),
             const SizedBox(width: 10),
-            Text(label,
-                style: AppText.body(size: 14, weight: FontWeight.w500)),
+            Text(label, style: AppText.body(size: 14, weight: FontWeight.w500)),
           ],
         ),
       ),

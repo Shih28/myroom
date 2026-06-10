@@ -107,9 +107,18 @@ class _NoteSheetState extends State<_NoteSheet> {
       withData: true,
       type: FileType.custom,
       allowedExtensions: const [
-        'jpg', 'jpeg', 'png', 'gif', 'webp',
-        'mp3', 'm4a', 'wav', 'ogg',
-        'txt', 'md', 'pdf',
+        'jpg',
+        'jpeg',
+        'png',
+        'gif',
+        'webp',
+        'mp3',
+        'm4a',
+        'wav',
+        'ogg',
+        'txt',
+        'md',
+        'pdf',
       ],
     );
     if (result == null || result.files.isEmpty) return;
@@ -120,34 +129,52 @@ class _NoteSheetState extends State<_NoteSheet> {
       if (bytes == null) continue;
       if (bytes.length > kMaxAttachmentBytes) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('「${f.name}」超過 10MB，無法加入')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('「${f.name}」超過 10MB，無法加入')));
         }
         continue;
       }
       final ext = (f.extension ?? '').toLowerCase();
       if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
-        additions.add(PendingAttachment(
-          type: 'image', filename: f.name, bytes: bytes, ext: ext,
-        ));
+        additions.add(
+          PendingAttachment(
+            type: 'image',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+          ),
+        );
       } else if (['mp3', 'm4a', 'wav', 'ogg'].contains(ext)) {
-        additions.add(PendingAttachment(
-          type: 'audio', filename: f.name, bytes: bytes, ext: ext,
-        ));
+        additions.add(
+          PendingAttachment(
+            type: 'audio',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+          ),
+        );
       } else if (['txt', 'md'].contains(ext)) {
-        additions.add(PendingAttachment(
-          type: 'file',
-          filename: f.name, bytes: bytes, ext: ext,
-          extractedText: utf8.decode(bytes, allowMalformed: true),
-        ));
+        additions.add(
+          PendingAttachment(
+            type: 'file',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+            extractedText: utf8.decode(bytes, allowMalformed: true),
+          ),
+        );
       } else if (ext == 'pdf') {
         final text = await _extractPdfText(bytes);
-        additions.add(PendingAttachment(
-          type: 'file',
-          filename: f.name, bytes: bytes, ext: ext,
-          extractedText: text,
-        ));
+        additions.add(
+          PendingAttachment(
+            type: 'file',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+            extractedText: text,
+          ),
+        );
       }
     }
     if (additions.isNotEmpty && mounted) {
@@ -204,18 +231,22 @@ class _NoteSheetState extends State<_NoteSheet> {
     await f.delete();
     if (bytes.length > kMaxAttachmentBytes) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('錄音超過 10MB，無法加入')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('錄音超過 10MB，無法加入')));
       }
       return;
     }
-    setState(() => _added.add(PendingAttachment(
+    setState(
+      () => _added.add(
+        PendingAttachment(
           type: 'audio',
           filename: 'recording.m4a',
           bytes: bytes,
           ext: 'm4a',
-        )));
+        ),
+      ),
+    );
   }
 
   // ── Save ────────────────────────────────────────────────────────────────
@@ -266,7 +297,10 @@ class _NoteSheetState extends State<_NoteSheet> {
               Text(
                 '新增筆記',
                 style: AppText.body(
-                    size: 16, weight: FontWeight.w600, color: AppColors.dark),
+                  size: 16,
+                  weight: FontWeight.w600,
+                  color: AppColors.dark,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -275,9 +309,14 @@ class _NoteSheetState extends State<_NoteSheet> {
               ),
               const SizedBox(height: 14),
 
-              Text('標題',
-                  style: AppText.label(
-                      size: 12, weight: FontWeight.w500, color: AppColors.dark)),
+              Text(
+                '標題',
+                style: AppText.label(
+                  size: 12,
+                  weight: FontWeight.w500,
+                  color: AppColors.dark,
+                ),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: _titleCtrl,
@@ -290,38 +329,50 @@ class _NoteSheetState extends State<_NoteSheet> {
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
                 ),
                 style: AppText.body(size: 14),
               ),
 
               if (widget.categories.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Text('分類',
-                    style: AppText.label(
-                        size: 12,
-                        weight: FontWeight.w500,
-                        color: AppColors.dark)),
+                Text(
+                  '分類',
+                  style: AppText.label(
+                    size: 12,
+                    weight: FontWeight.w500,
+                    color: AppColors.dark,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: widget.categories
-                      .map((c) => _subCatChip(
-                            label: c.label,
-                            selected: _catId == c.id,
-                            onTap: () => setState(() => _catId = c.id),
-                          ))
+                      .map(
+                        (c) => _subCatChip(
+                          label: c.label,
+                          selected: _catId == c.id,
+                          onTap: () => setState(() => _catId = c.id),
+                        ),
+                      )
                       .toList(),
                 ),
               ],
 
               const SizedBox(height: 14),
 
-              Text('內容',
-                  style: AppText.label(
-                      size: 12, weight: FontWeight.w500, color: AppColors.dark)),
+              Text(
+                '內容',
+                style: AppText.label(
+                  size: 12,
+                  weight: FontWeight.w500,
+                  color: AppColors.dark,
+                ),
+              ),
               const SizedBox(height: 6),
               TextField(
                 controller: _contentCtrl,
@@ -337,19 +388,24 @@ class _NoteSheetState extends State<_NoteSheet> {
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
                 ),
                 style: AppText.body(size: 14, height: 1.6),
               ),
 
               if (_attachmentsEnabled && _added.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Text('附件',
-                    style: AppText.label(
-                        size: 12,
-                        weight: FontWeight.w500,
-                        color: AppColors.dark)),
+                Text(
+                  '附件',
+                  style: AppText.label(
+                    size: 12,
+                    weight: FontWeight.w500,
+                    color: AppColors.dark,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
@@ -383,9 +439,10 @@ class _NoteSheetState extends State<_NoteSheet> {
                           child: Text(
                             '儲存筆記',
                             style: AppText.body(
-                                size: 15,
-                                weight: FontWeight.w600,
-                                color: Colors.white),
+                              size: 15,
+                              weight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -393,18 +450,16 @@ class _NoteSheetState extends State<_NoteSheet> {
                   ),
                   if (_attachmentsEnabled) ...[
                     const SizedBox(width: 8),
-                    _actionBtn(
-                      icon: LucideIcons.paperclip,
-                      onTap: _pickFile,
-                    ),
+                    _actionBtn(icon: LucideIcons.paperclip, onTap: _pickFile),
                     const SizedBox(width: 8),
                     _actionBtn(
                       icon: _recording
                           ? LucideIcons.squareSlash
                           : LucideIcons.mic,
                       iconColor: _recording ? AppColors.rose : null,
-                      borderColor:
-                          _recording ? AppColors.rose.withOpacity(0.4) : null,
+                      borderColor: _recording
+                          ? AppColors.rose.withOpacity(0.4)
+                          : null,
                       onTap: _toggleRecording,
                     ),
                     const SizedBox(width: 10),
@@ -518,7 +573,9 @@ class _NoteSheetState extends State<_NoteSheet> {
             width: 7,
             height: 7,
             decoration: const BoxDecoration(
-                color: AppColors.rose, shape: BoxShape.circle),
+              color: AppColors.rose,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 8),
           Text('錄音中…', style: AppText.body(size: 13, color: AppColors.rose)),
@@ -528,10 +585,10 @@ class _NoteSheetState extends State<_NoteSheet> {
   }
 
   IconData _iconFor(String t) => switch (t) {
-        'image' => LucideIcons.image,
-        'audio' => LucideIcons.music,
-        _ => LucideIcons.fileText,
-      };
+    'image' => LucideIcons.image,
+    'audio' => LucideIcons.music,
+    _ => LucideIcons.fileText,
+  };
 
   String _formatDate(String dateKey) {
     final parts = dateKey.split('-');

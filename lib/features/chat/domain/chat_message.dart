@@ -30,8 +30,7 @@ class ChatMessage {
       id: doc.id,
       role: (d['role'] as String?) ?? 'assistant',
       content: (d['content'] as String?) ?? '',
-      createdAt:
-          (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }

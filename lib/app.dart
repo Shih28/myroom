@@ -27,7 +27,8 @@ class MyRoomApp extends StatelessWidget {
         Provider<FirebaseFirestore>(create: (_) => FirebaseFirestore.instance),
         Provider<FirebaseStorage>(create: (_) => FirebaseStorage.instance),
         Provider<FirebaseFunctions>(
-          create: (_) => FirebaseFunctions.instanceFor(region: kFunctionsRegion),
+          create: (_) =>
+              FirebaseFunctions.instanceFor(region: kFunctionsRegion),
         ),
         Provider<AuthRepo>(create: (c) => FirebaseAuthRepo(c.read())),
         StreamProvider<AppUser?>(

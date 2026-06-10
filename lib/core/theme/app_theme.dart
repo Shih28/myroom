@@ -29,53 +29,49 @@ class AppText {
     FontWeight weight = FontWeight.w500,
     bool italic = false,
     Color? color,
-  }) =>
-      GoogleFonts.cormorantGaramond(
-        fontSize: size,
-        fontWeight: weight,
-        fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-        color: color ?? AppColors.dark,
-        height: 1.05,
-      );
+  }) => GoogleFonts.cormorantGaramond(
+    fontSize: size,
+    fontWeight: weight,
+    fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+    color: color ?? AppColors.dark,
+    height: 1.05,
+  );
 
   static TextStyle body({
     double size = 14,
     FontWeight weight = FontWeight.w400,
     Color? color,
     double? height,
-  }) =>
-      GoogleFonts.dmSans(
-        fontSize: size,
-        fontWeight: weight,
-        color: color ?? AppColors.dark,
-        height: height,
-      );
+  }) => GoogleFonts.dmSans(
+    fontSize: size,
+    fontWeight: weight,
+    color: color ?? AppColors.dark,
+    height: height,
+  );
 
   static TextStyle label({
     double size = 12,
     FontWeight weight = FontWeight.w400,
     Color? color,
     double? letterSpacing,
-  }) =>
-      GoogleFonts.dmSans(
-        fontSize: size,
-        fontWeight: weight,
-        color: color ?? AppColors.muted,
-        letterSpacing: letterSpacing,
-      );
+  }) => GoogleFonts.dmSans(
+    fontSize: size,
+    fontWeight: weight,
+    color: color ?? AppColors.muted,
+    letterSpacing: letterSpacing,
+  );
 
   static TextStyle caption({
     double size = 10,
     FontWeight weight = FontWeight.w400,
     Color? color,
     double? letterSpacing,
-  }) =>
-      GoogleFonts.dmSans(
-        fontSize: size,
-        fontWeight: weight,
-        color: color ?? AppColors.muted,
-        letterSpacing: letterSpacing,
-      );
+  }) => GoogleFonts.dmSans(
+    fontSize: size,
+    fontWeight: weight,
+    color: color ?? AppColors.muted,
+    letterSpacing: letterSpacing,
+  );
 }
 
 // Standard box shadow used for cards
@@ -94,8 +90,8 @@ const kBtnShadow = BoxShadow(
 
 /// The app's [ThemeData], previously inlined in `MyRoomApp`.
 ThemeData buildAppTheme() => ThemeData(
-      scaffoldBackgroundColor: AppColors.bg,
-      colorScheme: const ColorScheme.light(surface: AppColors.bg),
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-    );
+  scaffoldBackgroundColor: AppColors.bg,
+  colorScheme: const ColorScheme.light(surface: AppColors.bg),
+  splashColor: Colors.transparent,
+  highlightColor: Colors.transparent,
+);

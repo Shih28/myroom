@@ -27,26 +27,31 @@ class MrCard extends StatelessWidget {
     Widget content = child;
 
     if (leftBorderColor != null) {
-      content = Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: 3,
-            decoration: BoxDecoration(
-              color: leftBorderColor,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
+      // IntrinsicHeight bounds the stretch Row's height to its content so the
+      // accent border can stretch even inside an unbounded-height parent
+      // (e.g. a ListView item), which would otherwise force an infinite height.
+      content = IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: leftBorderColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
               ),
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: padding ?? const EdgeInsets.fromLTRB(12, 12, 14, 12),
-              child: child,
+            Expanded(
+              child: Padding(
+                padding: padding ?? const EdgeInsets.fromLTRB(12, 12, 14, 12),
+                child: child,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
@@ -22,25 +23,24 @@ class FirebaseAuthRepo implements AuthRepo {
   @override
   String? get currentUserId => _auth.currentUser?.uid;
 
-  AppUser _toAppUser(User u) => AppUser(
-        uid: u.uid,
-        email: u.email ?? '',
-        displayName: u.displayName,
-      );
+  AppUser _toAppUser(User u) =>
+      AppUser(uid: u.uid, email: u.email ?? '', displayName: u.displayName);
 
   @override
-  Future<Result<void>> signIn(String email, String password) =>
-      _guard(() => _auth.signInWithEmailAndPassword(
-            email: email.trim(),
-            password: password,
-          ));
+  Future<Result<void>> signIn(String email, String password) => _guard(
+    () => _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    ),
+  );
 
   @override
-  Future<Result<void>> signUp(String email, String password) =>
-      _guard(() => _auth.createUserWithEmailAndPassword(
-            email: email.trim(),
-            password: password,
-          ));
+  Future<Result<void>> signUp(String email, String password) => _guard(
+    () => _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    ),
+  );
 
   @override
   Future<Result<void>> sendPasswordReset(String email) =>
@@ -48,61 +48,63 @@ class FirebaseAuthRepo implements AuthRepo {
 
   @override
   Future<Result<void>> signInWithGoogle() => _guard(() async {
-        if (kIsWeb) {
-          await _auth.signInWithPopup(GoogleAuthProvider());
-          return;
-        }
-        final googleUser = await GoogleSignIn().signIn();
-        if (googleUser == null) {
-          throw const AuthFailure('已取消 Google 登入');
-        }
-        final googleAuth = await googleUser.authentication;
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-        await _auth.signInWithCredential(credential);
-      });
+    if (kIsWeb) {
+      await _auth.signInWithPopup(GoogleAuthProvider());
+      return;
+    }
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      throw const AuthFailure('已取消 Google 登入');
+    }
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    await _auth.signInWithCredential(credential);
+  });
 
   @override
   Future<Result<void>> signInWithApple() => _guard(() async {
-        final provider = OAuthProvider('apple.com')
-          ..addScope('email')
-          ..addScope('name');
-        if (kIsWeb) {
-          await _auth.signInWithPopup(provider);
-          return;
-        }
-        final appleCredential = await SignInWithApple.getAppleIDCredential(
-          scopes: [
-            AppleIDAuthorizationScopes.email,
-            AppleIDAuthorizationScopes.fullName,
-          ],
-        );
-        final oauthCredential = provider.credential(
-          idToken: appleCredential.identityToken,
-          accessToken: appleCredential.authorizationCode,
-        );
-        await _auth.signInWithCredential(oauthCredential);
-      });
+    final provider = OAuthProvider('apple.com')
+      ..addScope('email')
+      ..addScope('name');
+    if (kIsWeb) {
+      await _auth.signInWithPopup(provider);
+      return;
+    }
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+    );
+    final oauthCredential = provider.credential(
+      idToken: appleCredential.identityToken,
+      accessToken: appleCredential.authorizationCode,
+    );
+    await _auth.signInWithCredential(oauthCredential);
+  });
 
   @override
   Future<Result<void>> signOut() => _guard(() async {
-        if (!kIsWeb) {
-          try {
-            await GoogleSignIn().signOut();
-          } catch (_) {/* not signed in via Google — ignore */}
-        }
-        await _auth.signOut();
-      });
+    if (!kIsWeb) {
+      try {
+        await GoogleSignIn().signOut();
+      } catch (_) {
+        /* not signed in via Google — ignore */
+      }
+    }
+    await _auth.signOut();
+  });
 
   @override
   Future<Result<void>> deleteAccount({String? password}) => _guard(() async {
-        final user = _auth.currentUser;
-        if (user == null) throw const AuthFailure('尚未登入');
-        await _reauthenticate(user, password);
-        await user.delete();
-      });
+    final user = _auth.currentUser;
+    if (user == null) throw const AuthFailure('尚未登入');
+    await _reauthenticate(user, password);
+    await user.delete();
+  });
 
   /// Provider-specific re-authentication required by `user.delete()`.
   Future<void> _reauthenticate(User user, String? password) async {

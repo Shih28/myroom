@@ -50,7 +50,10 @@ class AuthenticatedScope extends StatelessWidget {
           child: SizedBox(
             width: 28,
             height: 28,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.dark),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.dark,
+            ),
           ),
         ),
       );

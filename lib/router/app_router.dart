@@ -33,10 +33,7 @@ GoRouter buildRouter(AuthRepo authRepo) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: Routes.login,
-        builder: (_, __) => const LoginPage(),
-      ),
+      GoRoute(path: Routes.login, builder: (_, __) => const LoginPage()),
 
       // Everything authenticated lives under this ShellRoute so the user-scoped
       // provider tier wraps the tab shell AND the pushed-over routes
@@ -49,41 +46,54 @@ GoRouter buildRouter(AuthRepo authRepo) {
             builder: (context, state, navigationShell) =>
                 AppScaffold(navigationShell: navigationShell),
             branches: [
-              StatefulShellBranch(routes: [
-                GoRoute(
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
                     path: Routes.calendar,
-                    builder: (_, __) => const CalendarPage()),
-              ]),
-              StatefulShellBranch(routes: [
-                GoRoute(
-                    path: Routes.todo, builder: (_, __) => const TodoPage()),
-              ]),
-              StatefulShellBranch(routes: [
-                GoRoute(
-                    path: Routes.ideas, builder: (_, __) => const IdeasPage()),
-              ]),
-              StatefulShellBranch(routes: [
-                GoRoute(
-                    path: Routes.notes, builder: (_, __) => const NotesPage()),
-              ]),
-              StatefulShellBranch(routes: [
-                GoRoute(
-                    path: Routes.recap, builder: (_, __) => const RecapPage()),
-              ]),
+                    builder: (_, __) => const CalendarPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: Routes.todo,
+                    builder: (_, __) => const TodoPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: Routes.ideas,
+                    builder: (_, __) => const IdeasPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: Routes.notes,
+                    builder: (_, __) => const NotesPage(),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: Routes.recap,
+                    builder: (_, __) => const RecapPage(),
+                  ),
+                ],
+              ),
             ],
           ),
           GoRoute(
             path: Routes.settings,
             builder: (_, __) => const SettingsPage(),
           ),
-          GoRoute(
-            path: Routes.add,
-            builder: (_, __) => const AddOverlay(),
-          ),
-          GoRoute(
-            path: Routes.chat,
-            builder: (_, __) => const ChatOverlay(),
-          ),
+          GoRoute(path: Routes.add, builder: (_, __) => const AddOverlay()),
+          GoRoute(path: Routes.chat, builder: (_, __) => const ChatOverlay()),
         ],
       ),
     ],

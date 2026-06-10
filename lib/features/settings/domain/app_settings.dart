@@ -20,7 +20,9 @@ class AppSettings {
 
   static const AppSettings defaults = AppSettings();
 
-  factory AppSettings.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory AppSettings.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data();
     if (d == null) return defaults;
     return AppSettings(

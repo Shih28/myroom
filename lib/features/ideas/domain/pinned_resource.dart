@@ -22,7 +22,8 @@ class PinnedResource {
   });
 
   factory PinnedResource.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> doc) {
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data() ?? const {};
     return PinnedResource(
       id: doc.id,
@@ -37,10 +38,10 @@ class PinnedResource {
 
   /// `createdAt` is injected by the repo.
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'type': type,
-        'description': description,
-        'url': url,
-        'sortOrder': sortOrder,
-      };
+    'title': title,
+    'type': type,
+    'description': description,
+    'url': url,
+    'sortOrder': sortOrder,
+  };
 }

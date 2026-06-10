@@ -69,9 +69,18 @@ class _AddOverlayState extends State<AddOverlay> {
       withData: true,
       type: FileType.custom,
       allowedExtensions: const [
-        'jpg', 'jpeg', 'png', 'gif', 'webp',
-        'mp3', 'm4a', 'wav', 'ogg',
-        'txt', 'md', 'pdf',
+        'jpg',
+        'jpeg',
+        'png',
+        'gif',
+        'webp',
+        'mp3',
+        'm4a',
+        'wav',
+        'ogg',
+        'txt',
+        'md',
+        'pdf',
       ],
     );
     if (result == null || result.files.isEmpty) return;
@@ -86,27 +95,43 @@ class _AddOverlayState extends State<AddOverlay> {
       }
       final ext = (f.extension ?? '').toLowerCase();
       if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
-        additions.add(PendingAttachment(
-            type: 'image', filename: f.name, bytes: bytes, ext: ext));
+        additions.add(
+          PendingAttachment(
+            type: 'image',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+          ),
+        );
       } else if (['mp3', 'm4a', 'wav', 'ogg'].contains(ext)) {
-        additions.add(PendingAttachment(
-            type: 'audio', filename: f.name, bytes: bytes, ext: ext));
+        additions.add(
+          PendingAttachment(
+            type: 'audio',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+          ),
+        );
       } else if (['txt', 'md'].contains(ext)) {
-        additions.add(PendingAttachment(
-          type: 'file',
-          filename: f.name,
-          bytes: bytes,
-          ext: ext,
-          extractedText: utf8.decode(bytes, allowMalformed: true),
-        ));
+        additions.add(
+          PendingAttachment(
+            type: 'file',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+            extractedText: utf8.decode(bytes, allowMalformed: true),
+          ),
+        );
       } else if (ext == 'pdf') {
-        additions.add(PendingAttachment(
-          type: 'file',
-          filename: f.name,
-          bytes: bytes,
-          ext: ext,
-          extractedText: await _extractPdfText(bytes),
-        ));
+        additions.add(
+          PendingAttachment(
+            type: 'file',
+            filename: f.name,
+            bytes: bytes,
+            ext: ext,
+            extractedText: await _extractPdfText(bytes),
+          ),
+        );
       }
     }
     if (additions.isNotEmpty && mounted) {
@@ -164,12 +189,16 @@ class _AddOverlayState extends State<AddOverlay> {
       _toast('錄音超過 10MB，無法加入');
       return;
     }
-    setState(() => _attachments.add(PendingAttachment(
+    setState(
+      () => _attachments.add(
+        PendingAttachment(
           type: 'audio',
           filename: 'recording.m4a',
           bytes: bytes,
           ext: 'm4a',
-        )));
+        ),
+      ),
+    );
   }
 
   // ── Smart Add submission ──────────────────────────────────────────────────
@@ -199,8 +228,10 @@ class _AddOverlayState extends State<AddOverlay> {
       if (a.type == 'audio' &&
           (a.extractedText == null || a.extractedText!.isEmpty)) {
         if (mounted) setState(() => _status = '轉錄語音中…');
-        final r =
-            await ai.transcribe(audioBytes: a.bytes, filename: a.filename);
+        final r = await ai.transcribe(
+          audioBytes: a.bytes,
+          filename: a.filename,
+        );
         if (r is Ok<String>) {
           _attachments[i] = PendingAttachment(
             type: a.type,
@@ -263,21 +294,21 @@ class _AddOverlayState extends State<AddOverlay> {
     for (final item in items) {
       switch (item) {
         case ClassifiedTodo t:
-          await todoRepo.add(Todo(
-            id: '',
-            title: t.text,
-            category: _todoRef(t.catId, todoCats),
-          ));
+          await todoRepo.add(
+            Todo(id: '', title: t.text, category: _todoRef(t.catId, todoCats)),
+          );
           count++;
         case ClassifiedTodoWithTime tt:
-          await eventRepo.add(CalendarEvent(
-            id: '',
-            title: tt.text,
-            startTime: tt.start,
-            endTime: tt.end,
-            color: AppColors.sage,
-            createdAt: DateTime.now(),
-          ));
+          await eventRepo.add(
+            CalendarEvent(
+              id: '',
+              title: tt.text,
+              startTime: tt.start,
+              endTime: tt.end,
+              color: AppColors.sage,
+              createdAt: DateTime.now(),
+            ),
+          );
           count++;
         case ClassifiedIdea idea:
           await ideaRepo.add(idea.text);
@@ -300,12 +331,14 @@ class _AddOverlayState extends State<AddOverlay> {
           );
           count++;
         case ClassifiedRecap r:
-          await recapRepo.add(Recap(
-            id: '',
-            title: r.title.isEmpty ? '回顧' : r.title,
-            content: r.description,
-            createdAt: DateTime.now(),
-          ));
+          await recapRepo.add(
+            Recap(
+              id: '',
+              title: r.title.isEmpty ? '回顧' : r.title,
+              content: r.description,
+              createdAt: DateTime.now(),
+            ),
+          );
           count++;
       }
     }
@@ -314,12 +347,16 @@ class _AddOverlayState extends State<AddOverlay> {
     navigator.pop();
     scaffoldMessengerKey.currentState
       ?..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text('已透過 AI 新增 $count 個項目',
-            style: AppText.body(size: 13, color: Colors.white)),
-        backgroundColor: AppColors.dark,
-        behavior: SnackBarBehavior.floating,
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            '已透過 AI 新增 $count 個項目',
+            style: AppText.body(size: 13, color: Colors.white),
+          ),
+          backgroundColor: AppColors.dark,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   TodoCategoryRef _todoRef(String id, List<TodoCategory> cats) {
@@ -335,7 +372,11 @@ class _AddOverlayState extends State<AddOverlay> {
     for (final c in cats) {
       if (c.id == id) {
         return NoteCategoryRef(
-            id: c.id, label: c.label, color: c.color, iconName: c.iconName);
+          id: c.id,
+          label: c.label,
+          color: c.color,
+          iconName: c.iconName,
+        );
       }
     }
     return NoteCategoryRef.undefined;
@@ -345,11 +386,16 @@ class _AddOverlayState extends State<AddOverlay> {
     // Routed through the global messenger so it works across async gaps.
     scaffoldMessengerKey.currentState
       ?..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text(msg, style: AppText.body(size: 13, color: Colors.white)),
-        backgroundColor: AppColors.dark,
-        behavior: SnackBarBehavior.floating,
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            msg,
+            style: AppText.body(size: 13, color: Colors.white),
+          ),
+          backgroundColor: AppColors.dark,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   // ── UI ────────────────────────────────────────────────────────────────────
@@ -373,8 +419,10 @@ class _AddOverlayState extends State<AddOverlay> {
                         : () => Navigator.of(context).pop(),
                   ),
                   const Spacer(),
-                  Text('新增',
-                      style: AppText.display(size: 23, weight: FontWeight.w400)),
+                  Text(
+                    '新增',
+                    style: AppText.display(size: 23, weight: FontWeight.w400),
+                  ),
                   const Spacer(),
                   const SizedBox(width: 36),
                 ],
@@ -388,14 +436,20 @@ class _AddOverlayState extends State<AddOverlay> {
                   children: [
                     Row(
                       children: [
-                        const Icon(LucideIcons.sparkles,
-                            size: 16, color: AppColors.amber),
+                        const Icon(
+                          LucideIcons.sparkles,
+                          size: 16,
+                          color: AppColors.amber,
+                        ),
                         const SizedBox(width: 6),
-                        Text('輸入任何內容，AI 會自動分類',
-                            style: AppText.body(
-                                size: 13,
-                                weight: FontWeight.w600,
-                                color: AppColors.muted)),
+                        Text(
+                          '輸入任何內容，AI 會自動分類',
+                          style: AppText.body(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: AppColors.muted,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -411,18 +465,22 @@ class _AddOverlayState extends State<AddOverlay> {
                         border: Border.all(color: AppColors.border),
                         boxShadow: const [kCardShadow],
                       ),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       child: TextField(
                         controller: _textCtrl,
                         maxLines: 8,
                         minLines: 5,
                         enabled: !_processing,
                         decoration: InputDecoration(
-                          hintText:
-                              '例如：明天早上十點開會、記得買牛奶、想學插畫、今天心情很好…',
+                          hintText: '例如：明天早上十點開會、記得買牛奶、想學插畫、今天心情很好…',
                           hintStyle: AppText.body(
-                              size: 14, color: AppColors.muted, height: 1.6),
+                            size: 14,
+                            color: AppColors.muted,
+                            height: 1.6,
+                          ),
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
@@ -432,11 +490,14 @@ class _AddOverlayState extends State<AddOverlay> {
                     ),
                     if (_attachmentsEnabled && _attachments.isNotEmpty) ...[
                       const SizedBox(height: 14),
-                      Text('附件',
-                          style: AppText.label(
-                              size: 12,
-                              weight: FontWeight.w500,
-                              color: AppColors.dark)),
+                      Text(
+                        '附件',
+                        style: AppText.label(
+                          size: 12,
+                          weight: FontWeight.w500,
+                          color: AppColors.dark,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
@@ -444,11 +505,12 @@ class _AddOverlayState extends State<AddOverlay> {
                         children: [
                           for (final a in _attachments)
                             _attachmentChip(
-                                a,
-                                _processing
-                                    ? null
-                                    : () =>
-                                        setState(() => _attachments.remove(a))),
+                              a,
+                              _processing
+                                  ? null
+                                  : () =>
+                                        setState(() => _attachments.remove(a)),
+                            ),
                         ],
                       ),
                     ],
@@ -485,25 +547,37 @@ class _AddOverlayState extends State<AddOverlay> {
                                       width: 15,
                                       height: 15,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: Colors.white),
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                     const SizedBox(width: 10),
-                                    Text(_status,
-                                        style: AppText.body(
-                                            size: 14, color: Colors.white)),
+                                    Text(
+                                      _status,
+                                      style: AppText.body(
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ],
                                 )
                               : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(LucideIcons.sparkles,
-                                        size: 16, color: AppColors.amber),
+                                    const Icon(
+                                      LucideIcons.sparkles,
+                                      size: 16,
+                                      color: AppColors.amber,
+                                    ),
                                     const SizedBox(width: 8),
-                                    Text('智慧新增',
-                                        style: AppText.body(
-                                            size: 15,
-                                            weight: FontWeight.w600,
-                                            color: Colors.white)),
+                                    Text(
+                                      '智慧新增',
+                                      style: AppText.body(
+                                        size: 15,
+                                        weight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ],
                                 ),
                         ),
@@ -518,10 +592,13 @@ class _AddOverlayState extends State<AddOverlay> {
                     ),
                     const SizedBox(width: 8),
                     _actionBtn(
-                      icon: _recording ? LucideIcons.squareSlash : LucideIcons.mic,
+                      icon: _recording
+                          ? LucideIcons.squareSlash
+                          : LucideIcons.mic,
                       iconColor: _recording ? AppColors.rose : null,
-                      borderColor:
-                          _recording ? AppColors.rose.withOpacity(0.4) : null,
+                      borderColor: _recording
+                          ? AppColors.rose.withOpacity(0.4)
+                          : null,
                       onTap: _processing ? null : _toggleRecording,
                     ),
                   ],
@@ -571,7 +648,11 @@ class _AddOverlayState extends State<AddOverlay> {
             const SizedBox(width: 6),
             GestureDetector(
               onTap: onRemove,
-              child: const Icon(LucideIcons.x, size: 11, color: AppColors.muted),
+              child: const Icon(
+                LucideIcons.x,
+                size: 11,
+                color: AppColors.muted,
+              ),
             ),
           ],
         ],
@@ -615,7 +696,9 @@ class _AddOverlayState extends State<AddOverlay> {
             width: 7,
             height: 7,
             decoration: const BoxDecoration(
-                color: AppColors.rose, shape: BoxShape.circle),
+              color: AppColors.rose,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 8),
           Text('錄音中…', style: AppText.body(size: 13, color: AppColors.rose)),

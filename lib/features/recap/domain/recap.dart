@@ -33,8 +33,5 @@ class Recap {
 
   /// Client-writable data fields only. No `createdAt` (repo injects it) and no
   /// `exportStoragePath` (fn-only).
-  Map<String, dynamic> toJson() => {
-        'title': title,
-        'content': content,
-      };
+  Map<String, dynamic> toJson() => {'title': title, 'content': content};
 }

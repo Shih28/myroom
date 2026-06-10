@@ -22,9 +22,18 @@ linter:
   # producing the lint.
   rules:
     prefer_final_fields: false
+    # Phase 3 hardening — strict lints required by refactor_guide/Phasing.md.
+    avoid_print: true
+    unawaited_futures: true
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
 
 analyzer:
   errors:
+    # Strict-lint escalation: a missed `await` or stray `print` fails analysis (and CI).
+    unawaited_futures: error
+    avoid_print: error
     deprecated_member_use: ignore
     unnecessary_underscores: ignore
     unnecessary_brace_in_string_interps: ignore

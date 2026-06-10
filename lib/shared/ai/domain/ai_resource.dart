@@ -14,9 +14,9 @@ class AiResource {
   });
 
   factory AiResource.fromJson(Map<String, dynamic> m) => AiResource(
-        title: (m['title'] as String?) ?? '',
-        type: (m['type'] as String?) ?? '',
-        description: (m['description'] as String?) ?? '',
-        url: (m['url'] as String?) ?? '',
-      );
+    title: (m['title'] as String?) ?? '',
+    type: (m['type'] as String?) ?? '',
+    description: (m['description'] as String?) ?? '',
+    url: (m['url'] as String?) ?? '',
+  );
 }

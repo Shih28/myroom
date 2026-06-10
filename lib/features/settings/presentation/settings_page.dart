@@ -40,10 +40,10 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _save() async {
     await context.read<SettingsRepo>().updateSettings(
-          selfIntro: _introCtrl.text.trim(),
-          rules: _instCtrl.text.trim(),
-          autoEnrich: _autoEnrich,
-        );
+      selfIntro: _introCtrl.text.trim(),
+      rules: _instCtrl.text.trim(),
+      autoEnrich: _autoEnrich,
+    );
   }
 
   Future<void> _saveAndPop() async {
@@ -71,8 +71,10 @@ class _SettingsPageState extends State<SettingsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('此動作無法復原，所有資料將被永久刪除。',
-                style: AppText.body(size: 13, color: AppColors.muted)),
+            Text(
+              '此動作無法復原，所有資料將被永久刪除。',
+              style: AppText.body(size: 13, color: AppColors.muted),
+            ),
             if (isPassword) ...[
               const SizedBox(height: 16),
               TextField(
@@ -92,13 +94,21 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('取消', style: AppText.body(size: 14, color: AppColors.muted)),
+            child: Text(
+              '取消',
+              style: AppText.body(size: 14, color: AppColors.muted),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('刪除',
-                style: AppText.body(
-                    size: 14, weight: FontWeight.w700, color: AppColors.rose)),
+            child: Text(
+              '刪除',
+              style: AppText.body(
+                size: 14,
+                weight: FontWeight.w700,
+                color: AppColors.rose,
+              ),
+            ),
           ),
         ],
       ),
@@ -140,9 +150,14 @@ class _SettingsPageState extends State<SettingsPage> {
                       onTap: _saveAndPop,
                     ),
                     const Spacer(),
-                    Text('myroom',
-                        style: AppText.display(
-                            size: 23, weight: FontWeight.w400, italic: true)),
+                    Text(
+                      'myroom',
+                      style: AppText.display(
+                        size: 23,
+                        weight: FontWeight.w400,
+                        italic: true,
+                      ),
+                    ),
                     const Spacer(),
                     const SizedBox(width: 36),
                   ],
@@ -155,7 +170,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppColors.dark),
+                        strokeWidth: 2,
+                        color: AppColors.dark,
+                      ),
                     ),
                   ),
                 )
@@ -174,45 +191,67 @@ class _SettingsPageState extends State<SettingsPage> {
                               color: AppColors.dark,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(LucideIcons.user,
-                                size: 30, color: Colors.white),
+                            child: const Icon(
+                              LucideIcons.user,
+                              size: 30,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),
                         Center(
-                          child: Text('設定',
-                              style: AppText.display(
-                                  size: 26, weight: FontWeight.w500)),
+                          child: Text(
+                            '設定',
+                            style: AppText.display(
+                              size: 26,
+                              weight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                         if (email.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Center(child: Text(email, style: AppText.caption(size: 11))),
+                          Center(
+                            child: Text(
+                              email,
+                              style: AppText.caption(size: 11),
+                            ),
+                          ),
                         ],
                         const SizedBox(height: 28),
-                        _SectionLabel(label: '關於我', icon: LucideIcons.user),
+                        const _SectionLabel(
+                          label: '關於我',
+                          icon: LucideIcons.user,
+                        ),
                         const SizedBox(height: 8),
                         _FieldCard(
                           controller: _introCtrl,
-                          hint:
-                              '介紹自己，讓 AI 更了解你...\n例如：我是大學生，主修資工，喜歡閱讀和健身。',
+                          hint: '介紹自己，讓 AI 更了解你...\n例如：我是大學生，主修資工，喜歡閱讀和健身。',
                         ),
                         const SizedBox(height: 8),
-                        Text('AI 聊天時會將此資訊納入背景，提供更個人化的回覆。',
-                            style: AppText.caption(size: 11)),
+                        Text(
+                          'AI 聊天時會將此資訊納入背景，提供更個人化的回覆。',
+                          style: AppText.caption(size: 11),
+                        ),
                         const SizedBox(height: 24),
-                        _SectionLabel(
-                            label: 'AI 回覆指示', icon: LucideIcons.sparkles),
+                        const _SectionLabel(
+                          label: 'AI 回覆指示',
+                          icon: LucideIcons.sparkles,
+                        ),
                         const SizedBox(height: 8),
                         _FieldCard(
                           controller: _instCtrl,
-                          hint:
-                              '告訴 AI 你希望的回覆風格...\n例如：請用輕鬆語氣、每次附上具體行動建議。',
+                          hint: '告訴 AI 你希望的回覆風格...\n例如：請用輕鬆語氣、每次附上具體行動建議。',
                         ),
                         const SizedBox(height: 8),
-                        Text('非必填。留白則使用預設的簡潔友善語氣。',
-                            style: AppText.caption(size: 11)),
+                        Text(
+                          '非必填。留白則使用預設的簡潔友善語氣。',
+                          style: AppText.caption(size: 11),
+                        ),
                         const SizedBox(height: 24),
-                        _SectionLabel(label: 'AI 功能', icon: LucideIcons.bot),
+                        const _SectionLabel(
+                          label: 'AI 功能',
+                          icon: LucideIcons.bot,
+                        ),
                         const SizedBox(height: 8),
                         Container(
                           decoration: BoxDecoration(
@@ -222,25 +261,34 @@ class _SettingsPageState extends State<SettingsPage> {
                             boxShadow: const [kCardShadow],
                           ),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
                           child: Row(
                             children: [
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('自動分析靈感',
-                                        style: AppText.body(
-                                            size: 14, weight: FontWeight.w500)),
+                                    Text(
+                                      '自動分析靈感',
+                                      style: AppText.body(
+                                        size: 14,
+                                        weight: FontWeight.w500,
+                                      ),
+                                    ),
                                     const SizedBox(height: 2),
-                                    Text('在靈感頁面，AI 將自動補充想法的細節與延伸。',
-                                        style: AppText.caption(size: 11)),
+                                    Text(
+                                      '在靈感頁面，AI 將自動補充想法的細節與延伸。',
+                                      style: AppText.caption(size: 11),
+                                    ),
                                   ],
                                 ),
                               ),
                               Switch(
                                 value: _autoEnrich,
-                                onChanged: (v) => setState(() => _autoEnrich = v),
+                                onChanged: (v) =>
+                                    setState(() => _autoEnrich = v),
                                 activeColor: AppColors.dark,
                               ),
                             ],
@@ -256,11 +304,14 @@ class _SettingsPageState extends State<SettingsPage> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Center(
-                              child: Text('儲存',
-                                  style: AppText.body(
-                                      size: 15,
-                                      weight: FontWeight.w600,
-                                      color: Colors.white)),
+                              child: Text(
+                                '儲存',
+                                style: AppText.body(
+                                  size: 15,
+                                  weight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -303,9 +354,14 @@ class _SectionLabel extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: AppColors.muted),
         const SizedBox(width: 6),
-        Text(label,
-            style: AppText.body(
-                size: 13, weight: FontWeight.w600, color: AppColors.muted)),
+        Text(
+          label,
+          style: AppText.body(
+            size: 13,
+            weight: FontWeight.w600,
+            color: AppColors.muted,
+          ),
+        ),
       ],
     );
   }
@@ -332,7 +388,11 @@ class _FieldCard extends StatelessWidget {
         minLines: 3,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: AppText.body(size: 13, color: AppColors.muted, height: 1.6),
+          hintStyle: AppText.body(
+            size: 13,
+            color: AppColors.muted,
+            height: 1.6,
+          ),
           border: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
@@ -365,8 +425,14 @@ class _DangerRow extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(width: 12),
-            Text(label,
-                style: AppText.body(size: 14, weight: FontWeight.w500, color: color)),
+            Text(
+              label,
+              style: AppText.body(
+                size: 14,
+                weight: FontWeight.w500,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),

@@ -103,8 +103,7 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                         itemExtent: 46,
                         perspective: 0.003,
                         physics: const FixedExtentScrollPhysics(),
-                        onSelectedItemChanged: (i) =>
-                            setState(() => _hour = i),
+                        onSelectedItemChanged: (i) => setState(() => _hour = i),
                         childDelegate: ListWheelChildLoopingListDelegate(
                           children: List.generate(
                             24,
@@ -112,7 +111,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                               child: Text(
                                 fmt2(h),
                                 style: AppText.body(
-                                    size: 24, weight: FontWeight.w500),
+                                  size: 24,
+                                  weight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ),
@@ -122,9 +123,10 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                     Text(
                       ':',
                       style: AppText.body(
-                          size: 26,
-                          weight: FontWeight.w700,
-                          color: AppColors.dark),
+                        size: 26,
+                        weight: FontWeight.w700,
+                        color: AppColors.dark,
+                      ),
                     ),
                     Expanded(
                       child: ListWheelScrollView.useDelegate(
@@ -141,7 +143,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                               child: Text(
                                 fmt2(i * _minStep),
                                 style: AppText.body(
-                                    size: 24, weight: FontWeight.w500),
+                                  size: 24,
+                                  weight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ),
@@ -158,7 +162,9 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
             width: double.infinity,
             child: GestureDetector(
               onTap: () => Navigator.pop(
-                  context, TimeOfDay(hour: _hour, minute: _minute)),
+                context,
+                TimeOfDay(hour: _hour, minute: _minute),
+              ),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
@@ -169,9 +175,10 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                   child: Text(
                     '確認',
                     style: AppText.body(
-                        size: 15,
-                        weight: FontWeight.w600,
-                        color: Colors.white),
+                      size: 15,
+                      weight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -228,8 +235,11 @@ class _CalendarBodyState extends State<_CalendarBody> {
 
   DateTime _weekStartFor(DateTime date) {
     final dow = date.weekday % 7;
-    return DateTime(date.year, date.month, date.day)
-        .subtract(Duration(days: dow));
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+    ).subtract(Duration(days: dow));
   }
 
   DateTime get _weekStart => _weekStartFor(_focusDate);
@@ -271,8 +281,11 @@ class _CalendarBodyState extends State<_CalendarBody> {
 
   // All events (allDay or not) span their full date range.
   bool _eventIsOnDay(CalendarEvent e, DateTime day) {
-    final start =
-        DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
+    final start = DateTime(
+      e.startTime.year,
+      e.startTime.month,
+      e.startTime.day,
+    );
     final end = DateTime(e.endTime.year, e.endTime.month, e.endTime.day);
     final d = DateTime(day.year, day.month, day.day);
     return !d.isBefore(start) && !d.isAfter(end);
@@ -307,7 +320,9 @@ class _CalendarBodyState extends State<_CalendarBody> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: active ? Colors.white : Colors.transparent,
                           borderRadius: BorderRadius.circular(18),
@@ -317,11 +332,8 @@ class _CalendarBodyState extends State<_CalendarBody> {
                           labels[v.index],
                           style: AppText.body(
                             size: 13,
-                            weight: active
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color:
-                                active ? AppColors.dark : AppColors.muted,
+                            weight: active ? FontWeight.w600 : FontWeight.w400,
+                            color: active ? AppColors.dark : AppColors.muted,
                           ),
                         ),
                       ),
@@ -342,8 +354,10 @@ class _CalendarBodyState extends State<_CalendarBody> {
                 onTap: () => _navigate(-1),
               ),
               const SizedBox(width: 4),
-              Text(_headerLabel,
-                  style: AppText.body(size: 13, weight: FontWeight.w500)),
+              Text(
+                _headerLabel,
+                style: AppText.body(size: 13, weight: FontWeight.w500),
+              ),
               const SizedBox(width: 4),
               MrIconButton(
                 icon: LucideIcons.chevronRight,
@@ -471,7 +485,10 @@ class _CalendarBodyState extends State<_CalendarBody> {
         shouldCloseOnMinExtent: true,
         builder: (_, scrollCtrl) => _AddEventModal(
           selectedDate: DateTime(
-              e.startTime.year, e.startTime.month, e.startTime.day),
+            e.startTime.year,
+            e.startTime.month,
+            e.startTime.day,
+          ),
           initialEvent: e,
           onSave: (updated) => repo.update(updated),
           scrollController: scrollCtrl,
@@ -531,27 +548,30 @@ class _MonthView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: kDow
-                .map((d) => Expanded(
-                      child: Center(
-                        child: Text(d,
-                            style: AppText.caption(
-                                weight: FontWeight.w600,
-                                color: AppColors.muted)),
+                .map(
+                  (d) => Expanded(
+                    child: Center(
+                      child: Text(
+                        d,
+                        style: AppText.caption(
+                          weight: FontWeight.w600,
+                          color: AppColors.muted,
+                        ),
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ),
         const SizedBox(height: 4),
         Expanded(
           child: SingleChildScrollView(
-            padding:
-                const EdgeInsets.only(left: 20, right: 20, bottom: 100),
+            padding: const EdgeInsets.only(left: 20, right: 20, bottom: 100),
             child: GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              gridDelegate:
-                  const SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 7,
                 mainAxisExtent: 90,
               ),
@@ -563,21 +583,26 @@ class _MonthView extends StatelessWidget {
                     decoration: BoxDecoration(
                       border: Border(
                         right: BorderSide(
-                            color: AppColors.border.withOpacity(0.5)),
+                          color: AppColors.border.withOpacity(0.5),
+                        ),
                         bottom: BorderSide(
-                            color: AppColors.border.withOpacity(0.5)),
+                          color: AppColors.border.withOpacity(0.5),
+                        ),
                       ),
                     ),
                   );
                 }
                 final date = DateTime(year, month, day);
-                final isToday = date.year == today.year &&
+                final isToday =
+                    date.year == today.year &&
                     date.month == today.month &&
                     date.day == today.day;
                 final isPast = date.isBefore(
-                    DateTime(today.year, today.month, today.day));
-                final dayEvents =
-                    events.where((e) => eventIsOnDay(e, date)).toList();
+                  DateTime(today.year, today.month, today.day),
+                );
+                final dayEvents = events
+                    .where((e) => eventIsOnDay(e, date))
+                    .toList();
 
                 return GestureDetector(
                   onTap: () => onDayTap(date),
@@ -585,9 +610,11 @@ class _MonthView extends StatelessWidget {
                     decoration: BoxDecoration(
                       border: Border(
                         right: BorderSide(
-                            color: AppColors.border.withOpacity(0.5)),
+                          color: AppColors.border.withOpacity(0.5),
+                        ),
                         bottom: BorderSide(
-                            color: AppColors.border.withOpacity(0.5)),
+                          color: AppColors.border.withOpacity(0.5),
+                        ),
                       ),
                     ),
                     padding: const EdgeInsets.all(3),
@@ -603,7 +630,8 @@ class _MonthView extends StatelessWidget {
                             decoration: isToday
                                 ? const BoxDecoration(
                                     color: AppColors.dark,
-                                    shape: BoxShape.circle)
+                                    shape: BoxShape.circle,
+                                  )
                                 : null,
                             child: Center(
                               child: Text(
@@ -616,36 +644,45 @@ class _MonthView extends StatelessWidget {
                                   color: isToday
                                       ? Colors.white
                                       : isPast
-                                          ? AppColors.muted
-                                          : AppColors.dark,
+                                      ? AppColors.muted
+                                      : AppColors.dark,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                        ...dayEvents.take(2).map((e) => GestureDetector(
-                              child: Container(
-                                margin: const EdgeInsets.only(top: 2),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 4, vertical: 1),
-                                decoration: BoxDecoration(
+                        ...dayEvents
+                            .take(2)
+                            .map(
+                              (e) => GestureDetector(
+                                child: Container(
+                                  margin: const EdgeInsets.only(top: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
                                     color: e.color,
-                                    borderRadius:
-                                        BorderRadius.circular(4)),
-                                child: Text(
-                                  e.title,
-                                  style: const TextStyle(
-                                      fontSize: 8, color: Colors.white),
-                                  overflow: TextOverflow.ellipsis,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    e.title,
+                                    style: const TextStyle(
+                                      fontSize: 8,
+                                      color: Colors.white,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
-                            )),
+                            ),
                         if (dayEvents.length > 2)
                           Padding(
-                            padding:
-                                const EdgeInsets.only(top: 2, left: 3),
-                            child: Text('+${dayEvents.length - 2}',
-                                style: AppText.caption(size: 8)),
+                            padding: const EdgeInsets.only(top: 2, left: 3),
+                            child: Text(
+                              '+${dayEvents.length - 2}',
+                              style: AppText.caption(size: 8),
+                            ),
                           ),
                       ],
                     ),
@@ -695,8 +732,10 @@ class _WeekViewState extends State<_WeekView> {
         !now.isBefore(widget.weekStart) && now.isBefore(weekEnd);
     final scrollHour = isCurrentWeek ? now.hour : 8;
     _scrollCtrl = ScrollController(
-      initialScrollOffset:
-          (scrollHour * kHourH - 60.0).clamp(0.0, double.infinity),
+      initialScrollOffset: (scrollHour * kHourH - 60.0).clamp(
+        0.0,
+        double.infinity,
+      ),
     );
   }
 
@@ -710,8 +749,11 @@ class _WeekViewState extends State<_WeekView> {
   // strictly between start date and end date (not the start/end day itself).
   bool _isMiddleDay(CalendarEvent e, DateTime d) {
     if (e.isAllDay) return false;
-    final startDate =
-        DateTime(e.startTime.year, e.startTime.month, e.startTime.day);
+    final startDate = DateTime(
+      e.startTime.year,
+      e.startTime.month,
+      e.startTime.day,
+    );
     final endDate = DateTime(e.endTime.year, e.endTime.month, e.endTime.day);
     final day = DateTime(d.year, d.month, d.day);
     return day.isAfter(startDate) && day.isBefore(endDate);
@@ -721,7 +763,9 @@ class _WeekViewState extends State<_WeekView> {
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final days = List.generate(
-        7, (i) => widget.weekStart.add(Duration(days: i)));
+      7,
+      (i) => widget.weekStart.add(Duration(days: i)),
+    );
     final allDayEvts = widget.events.where((e) => e.isAllDay).toList();
     final timedEvts = widget.events.where((e) => !e.isAllDay).toList();
     final totalH = 24 * kHourH.toDouble();
@@ -732,12 +776,14 @@ class _WeekViewState extends State<_WeekView> {
           children: [
             const SizedBox(width: 44),
             ...days.map((d) {
-              final isToday = d.year == today.year &&
+              final isToday =
+                  d.year == today.year &&
                   d.month == today.month &&
                   d.day == today.day;
               final dow = kDow[d.weekday % 7];
-              final isPast =
-                  d.isBefore(DateTime(today.year, today.month, today.day));
+              final isPast = d.isBefore(
+                DateTime(today.year, today.month, today.day),
+              );
               return Expanded(
                 child: GestureDetector(
                   onTap: () => widget.onDayTap(d),
@@ -746,21 +792,19 @@ class _WeekViewState extends State<_WeekView> {
                     children: [
                       Text(
                         dow,
-                        style: AppText.caption(
-                            size: 9, color: AppColors.muted),
+                        style: AppText.caption(size: 9, color: AppColors.muted),
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 3),
                       Container(
                         alignment: Alignment.center,
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 2),
+                        padding: const EdgeInsets.symmetric(vertical: 2),
                         decoration: isToday
                             ? BoxDecoration(
                                 color: AppColors.dark,
-                                borderRadius:
-                                    BorderRadius.circular(8))
+                                borderRadius: BorderRadius.circular(8),
+                              )
                             : null,
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
@@ -774,8 +818,8 @@ class _WeekViewState extends State<_WeekView> {
                               color: isToday
                                   ? Colors.white
                                   : isPast
-                                      ? AppColors.muted
-                                      : AppColors.dark,
+                                  ? AppColors.muted
+                                  : AppColors.dark,
                             ),
                           ),
                         ),
@@ -803,33 +847,36 @@ class _WeekViewState extends State<_WeekView> {
                   return Expanded(
                     child: Row(
                       children: chipsForDay
-                          .map((e) => Expanded(
-                                child: GestureDetector(
-                                  onTap: () => widget.onEventTap(e),
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        horizontal: 1),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 3),
-                                    decoration: BoxDecoration(
-                                        color: e.color,
-                                        borderRadius:
-                                            BorderRadius.circular(4),
-                                        border: e.isAllDay
-                                            ? null
-                                            : Border.all(
-                                                color: e.color,
-                                                width: 1)),
-                                    child: Text(
-                                      e.title,
-                                      style: const TextStyle(
-                                          fontSize: 9,
-                                          color: Colors.white),
-                                      overflow: TextOverflow.ellipsis,
+                          .map(
+                            (e) => Expanded(
+                              child: GestureDetector(
+                                onTap: () => widget.onEventTap(e),
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 1,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: e.color,
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: e.isAllDay
+                                        ? null
+                                        : Border.all(color: e.color, width: 1),
+                                  ),
+                                  child: Text(
+                                    e.title,
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.white,
                                     ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                              ))
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                   );
@@ -854,15 +901,15 @@ class _WeekViewState extends State<_WeekView> {
                         24,
                         (h) => Positioned(
                           // Fix: 00:00 was at top=-7 (clipped); clamp to 2
-                          top: h == 0
-                              ? 2.0
-                              : h * kHourH.toDouble() - 7,
+                          top: h == 0 ? 2.0 : h * kHourH.toDouble() - 7,
                           child: SizedBox(
                             width: 42,
                             child: Text(
                               '${fmt2(h)}:00',
                               style: AppText.caption(
-                                  size: 9, color: AppColors.muted),
+                                size: 9,
+                                color: AppColors.muted,
+                              ),
                               textAlign: TextAlign.right,
                             ),
                           ),
@@ -873,21 +920,31 @@ class _WeekViewState extends State<_WeekView> {
                   ...days.map((d) {
                     // Middle days are shown in the all-day chips row above.
                     final dayTimed = timedEvts
-                        .where((e) =>
-                            widget.eventIsOnDay(e, d) && !_isMiddleDay(e, d))
+                        .where(
+                          (e) =>
+                              widget.eventIsOnDay(e, d) && !_isMiddleDay(e, d),
+                        )
                         .toList();
                     return Expanded(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTapDown: (details) {
-                          final tapH =
-                              details.localPosition.dy / kHourH;
+                          final tapH = details.localPosition.dy / kHourH;
                           final hour = tapH.floor().clamp(0, 23);
-                          final minute =
-                              ((tapH - hour) * 60).round().clamp(0, 59);
+                          final minute = ((tapH - hour) * 60).round().clamp(
+                            0,
+                            59,
+                          );
                           final snappedMinute = (minute ~/ 15) * 15;
-                          widget.onTimeTap(DateTime(d.year, d.month,
-                              d.day, hour, snappedMinute));
+                          widget.onTimeTap(
+                            DateTime(
+                              d.year,
+                              d.month,
+                              d.day,
+                              hour,
+                              snappedMinute,
+                            ),
+                          );
                         },
                         child: Stack(
                           fit: StackFit.expand,
@@ -902,8 +959,7 @@ class _WeekViewState extends State<_WeekView> {
                                   height: 1,
                                   color: h == 0
                                       ? Colors.transparent
-                                      : AppColors.border
-                                          .withOpacity(0.6),
+                                      : AppColors.border.withOpacity(0.6),
                                 ),
                               ),
                             ),
@@ -912,24 +968,21 @@ class _WeekViewState extends State<_WeekView> {
                               // timed events render correctly in each column.
                               final eStart = e.startTime;
                               final eEnd = e.endTime;
-                              final dMid =
-                                  DateTime(d.year, d.month, d.day);
-                              final dNext = dMid
-                                  .add(const Duration(days: 1));
+                              final dMid = DateTime(d.year, d.month, d.day);
+                              final dNext = dMid.add(const Duration(days: 1));
                               final dispStart = eStart.isBefore(dMid)
                                   ? dMid
                                   : eStart;
-                              final dispEnd =
-                                  eEnd.isAfter(dNext) ? dNext : eEnd;
-                              final topFrac = dispStart.hour +
-                                  dispStart.minute / 60.0;
-                              final durH = dispEnd
-                                      .difference(dispStart)
-                                      .inMinutes /
+                              final dispEnd = eEnd.isAfter(dNext)
+                                  ? dNext
+                                  : eEnd;
+                              final topFrac =
+                                  dispStart.hour + dispStart.minute / 60.0;
+                              final durH =
+                                  dispEnd.difference(dispStart).inMinutes /
                                   60.0;
                               final top = topFrac * kHourH;
-                              final height =
-                                  max(durH * kHourH, 20.0);
+                              final height = max(durH * kHourH, 20.0);
                               return Positioned(
                                 top: top,
                                 left: 1,
@@ -938,18 +991,19 @@ class _WeekViewState extends State<_WeekView> {
                                 child: GestureDetector(
                                   onTap: () => widget.onEventTap(e),
                                   child: Container(
-                                    padding:
-                                        const EdgeInsets.symmetric(
-                                            horizontal: 5, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 5,
+                                      vertical: 3,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: e.color,
-                                      borderRadius:
-                                          BorderRadius.circular(6),
+                                      borderRadius: BorderRadius.circular(6),
                                       boxShadow: const [
                                         BoxShadow(
-                                            color: Color(0x26000000),
-                                            blurRadius: 4,
-                                            offset: Offset(0, 1))
+                                          color: Color(0x26000000),
+                                          blurRadius: 4,
+                                          offset: Offset(0, 1),
+                                        ),
                                       ],
                                     ),
                                     child: Text(
@@ -957,9 +1011,10 @@ class _WeekViewState extends State<_WeekView> {
                                           ? '${e.title}\n${_hm(e.startTime)}'
                                           : e.title,
                                       style: const TextStyle(
-                                          fontSize: 9,
-                                          color: Colors.white,
-                                          height: 1.3),
+                                        fontSize: 9,
+                                        color: Colors.white,
+                                        height: 1.3,
+                                      ),
                                       overflow: TextOverflow.fade,
                                     ),
                                   ),
@@ -1000,12 +1055,12 @@ class _DayView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final allDay =
-        events.where((e) => e.isAllDay && eventIsOnDay(e, date)).toList();
-    final timed = events
-        .where((e) => !e.isAllDay && eventIsOnDay(e, date))
-        .toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    final allDay = events
+        .where((e) => e.isAllDay && eventIsOnDay(e, date))
+        .toList();
+    final timed =
+        events.where((e) => !e.isAllDay && eventIsOnDay(e, date)).toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
     final all = [...allDay, ...timed];
 
     return Column(
@@ -1015,8 +1070,7 @@ class _DayView extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
           child: GestureDetector(
-            onTap: () =>
-                onAdd(DateTime(date.year, date.month, date.day, 9, 0)),
+            onTap: () => onAdd(DateTime(date.year, date.month, date.day, 9, 0)),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 11),
@@ -1027,12 +1081,12 @@ class _DayView extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(LucideIcons.plus,
-                      size: 14, color: Colors.white),
+                  const Icon(LucideIcons.plus, size: 14, color: Colors.white),
                   const SizedBox(width: 6),
-                  Text('新增行程',
-                      style: AppText.label(
-                          size: 13, color: Colors.white)),
+                  Text(
+                    '新增行程',
+                    style: AppText.label(size: 13, color: Colors.white),
+                  ),
                 ],
               ),
             ),
@@ -1041,8 +1095,10 @@ class _DayView extends StatelessWidget {
         Expanded(
           child: all.isEmpty
               ? Center(
-                  child: Text('今天沒有行程',
-                      style: AppText.body(color: AppColors.muted)),
+                  child: Text(
+                    '今天沒有行程',
+                    style: AppText.body(color: AppColors.muted),
+                  ),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
@@ -1073,48 +1129,52 @@ class _DayView extends StatelessWidget {
                             ),
                             Expanded(
                               child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       e.title,
                                       style: AppText.body(
-                                          size: 15,
-                                          weight: FontWeight.w600),
+                                        size: 15,
+                                        weight: FontWeight.w600,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 4),
                                     if (e.isAllDay)
-                                      Text('全天',
-                                          style:
-                                              AppText.caption(size: 12))
+                                      Text(
+                                        '全天',
+                                        style: AppText.caption(size: 12),
+                                      )
                                     else
                                       Text(
                                         '${_hm(e.startTime)} – ${_hm(e.endTime)}',
-                                        style:
-                                            AppText.caption(size: 12),
+                                        style: AppText.caption(size: 12),
                                       ),
                                     if (e.location != null &&
                                         e.location!.isNotEmpty) ...[
                                       const SizedBox(height: 3),
-                                      Row(children: [
-                                        const Icon(LucideIcons.mapPin,
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            LucideIcons.mapPin,
                                             size: 11,
-                                            color: AppColors.muted),
-                                        const SizedBox(width: 4),
-                                        Expanded(
+                                            color: AppColors.muted,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
                                             child: Text(
-                                          e.location!,
-                                          style:
-                                              AppText.caption(size: 11),
-                                          overflow:
-                                              TextOverflow.ellipsis,
-                                        )),
-                                      ]),
+                                              e.location!,
+                                              style: AppText.caption(size: 11),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ],
                                 ),
@@ -1122,8 +1182,11 @@ class _DayView extends StatelessWidget {
                             ),
                             const Padding(
                               padding: EdgeInsets.only(right: 14),
-                              child: Icon(LucideIcons.chevronRight,
-                                  size: 14, color: AppColors.muted),
+                              child: Icon(
+                                LucideIcons.chevronRight,
+                                size: 14,
+                                color: AppColors.muted,
+                              ),
                             ),
                           ],
                         ),
@@ -1170,7 +1233,7 @@ class _AddEventModalState extends State<_AddEventModal> {
     AppColors.amber,
     AppColors.blue,
     AppColors.rose,
-    AppColors.dark
+    AppColors.dark,
   ];
 
   @override
@@ -1188,8 +1251,13 @@ class _AddEventModalState extends State<_AddEventModal> {
     } else {
       final d = widget.selectedDate;
       final hasTime = d.hour != 0 || d.minute != 0;
-      _startDt = DateTime(d.year, d.month, d.day,
-          hasTime ? d.hour : 9, hasTime ? d.minute : 0);
+      _startDt = DateTime(
+        d.year,
+        d.month,
+        d.day,
+        hasTime ? d.hour : 9,
+        hasTime ? d.minute : 0,
+      );
       _endDt = _startDt.add(const Duration(hours: 1));
     }
   }
@@ -1204,14 +1272,20 @@ class _AddEventModalState extends State<_AddEventModal> {
 
   Future<void> _pickStartDate() async {
     final d = await showDatePicker(
-        context: context,
-        initialDate: _startDt,
-        firstDate: DateTime(2020),
-        lastDate: DateTime(2035));
+      context: context,
+      initialDate: _startDt,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
     if (d == null || !mounted) return;
     setState(() {
       _startDt = DateTime(
-          d.year, d.month, d.day, _startDt.hour, _startDt.minute);
+        d.year,
+        d.month,
+        d.day,
+        _startDt.hour,
+        _startDt.minute,
+      );
       if (_endDt.isBefore(_startDt)) {
         _endDt = _startDt.add(const Duration(hours: 1));
       }
@@ -1220,11 +1294,18 @@ class _AddEventModalState extends State<_AddEventModal> {
 
   Future<void> _pickStartTime() async {
     final t = await _show24hTimePicker(
-        context, TimeOfDay.fromDateTime(_startDt));
+      context,
+      TimeOfDay.fromDateTime(_startDt),
+    );
     if (t == null || !mounted) return;
     setState(() {
       _startDt = DateTime(
-          _startDt.year, _startDt.month, _startDt.day, t.hour, t.minute);
+        _startDt.year,
+        _startDt.month,
+        _startDt.day,
+        t.hour,
+        t.minute,
+      );
       if (_endDt.isBefore(_startDt)) {
         _endDt = _startDt.add(const Duration(hours: 1));
       }
@@ -1233,21 +1314,30 @@ class _AddEventModalState extends State<_AddEventModal> {
 
   Future<void> _pickEndDate() async {
     final d = await showDatePicker(
-        context: context,
-        initialDate: _endDt,
-        firstDate: _startDt,
-        lastDate: DateTime(2035));
+      context: context,
+      initialDate: _endDt,
+      firstDate: _startDt,
+      lastDate: DateTime(2035),
+    );
     if (d == null || !mounted) return;
-    setState(() => _endDt =
-        DateTime(d.year, d.month, d.day, _endDt.hour, _endDt.minute));
+    setState(
+      () =>
+          _endDt = DateTime(d.year, d.month, d.day, _endDt.hour, _endDt.minute),
+    );
   }
 
   Future<void> _pickEndTime() async {
-    final t = await _show24hTimePicker(
-        context, TimeOfDay.fromDateTime(_endDt));
+    final t = await _show24hTimePicker(context, TimeOfDay.fromDateTime(_endDt));
     if (t == null || !mounted) return;
-    setState(() => _endDt = DateTime(
-        _endDt.year, _endDt.month, _endDt.day, t.hour, t.minute));
+    setState(
+      () => _endDt = DateTime(
+        _endDt.year,
+        _endDt.month,
+        _endDt.day,
+        t.hour,
+        t.minute,
+      ),
+    );
   }
 
   void _save() {
@@ -1269,8 +1359,7 @@ class _AddEventModalState extends State<_AddEventModal> {
       endTime: end,
       color: _color,
       isAllDay: _allDay,
-      description:
-          _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+      description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
       location: _locationCtrl.text.trim().isEmpty
           ? null
           : _locationCtrl.text.trim(),
@@ -1286,8 +1375,9 @@ class _AddEventModalState extends State<_AddEventModal> {
     final isEdit = widget.initialEvent != null;
     return Container(
       decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       child: SingleChildScrollView(
         controller: widget.scrollController,
         padding: EdgeInsets.fromLTRB(20, 12, 20, 32 + bottom),
@@ -1295,21 +1385,29 @@ class _AddEventModalState extends State<_AddEventModal> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-                child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: AppColors.border,
-                        borderRadius: BorderRadius.circular(4)))),
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
-            Text(isEdit ? '編輯行程' : '新增行程',
-                style: AppText.body(size: 16, weight: FontWeight.w600)),
+            Text(
+              isEdit ? '編輯行程' : '新增行程',
+              style: AppText.body(size: 16, weight: FontWeight.w600),
+            ),
             const SizedBox(height: 14),
-            Text('標題',
-                style: AppText.label(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppColors.dark)),
+            Text(
+              '標題',
+              style: AppText.label(
+                size: 12,
+                weight: FontWeight.w500,
+                color: AppColors.dark,
+              ),
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _titleCtrl,
@@ -1319,79 +1417,109 @@ class _AddEventModalState extends State<_AddEventModal> {
                 filled: true,
                 fillColor: AppColors.bg,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 11),
+                  horizontal: 14,
+                  vertical: 11,
+                ),
               ),
               style: AppText.body(size: 14),
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 14),
-            Row(children: [
-              Text('全天活動',
+            Row(
+              children: [
+                Text(
+                  '全天活動',
                   style: AppText.label(
-                      size: 12,
-                      weight: FontWeight.w500,
-                      color: AppColors.dark)),
-              const Spacer(),
-              Switch(
+                    size: 12,
+                    weight: FontWeight.w500,
+                    color: AppColors.dark,
+                  ),
+                ),
+                const Spacer(),
+                Switch(
                   value: _allDay,
                   onChanged: (v) => setState(() => _allDay = v),
-                  activeColor: AppColors.dark),
-            ]),
-            const SizedBox(height: 10),
-            Text('開始時間',
-                style: AppText.label(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppColors.dark)),
-            const SizedBox(height: 6),
-            Row(children: [
-              Expanded(
-                  child: _DateTimeChip(
-                      label:
-                          '${_startDt.year}/${fmt2(_startDt.month)}/${fmt2(_startDt.day)}',
-                      icon: LucideIcons.calendar,
-                      onTap: _pickStartDate)),
-              if (!_allDay) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _DateTimeChip(
-                        label: '${fmt2(_startDt.hour)}:${fmt2(_startDt.minute)}',
-                        icon: LucideIcons.clock,
-                        onTap: _pickStartTime)),
+                  activeColor: AppColors.dark,
+                ),
               ],
-            ]),
+            ),
             const SizedBox(height: 10),
-            Text('結束時間',
-                style: AppText.label(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppColors.dark)),
+            Text(
+              '開始時間',
+              style: AppText.label(
+                size: 12,
+                weight: FontWeight.w500,
+                color: AppColors.dark,
+              ),
+            ),
             const SizedBox(height: 6),
-            Row(children: [
-              Expanded(
-                  child: _DateTimeChip(
-                      label:
-                          '${_endDt.year}/${fmt2(_endDt.month)}/${fmt2(_endDt.day)}',
-                      icon: LucideIcons.calendar,
-                      onTap: _pickEndDate)),
-              if (!_allDay) ...[
-                const SizedBox(width: 8),
+            Row(
+              children: [
                 Expanded(
+                  child: _DateTimeChip(
+                    label:
+                        '${_startDt.year}/${fmt2(_startDt.month)}/${fmt2(_startDt.day)}',
+                    icon: LucideIcons.calendar,
+                    onTap: _pickStartDate,
+                  ),
+                ),
+                if (!_allDay) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: _DateTimeChip(
-                        label: '${fmt2(_endDt.hour)}:${fmt2(_endDt.minute)}',
-                        icon: LucideIcons.clock,
-                        onTap: _pickEndTime)),
+                      label: '${fmt2(_startDt.hour)}:${fmt2(_startDt.minute)}',
+                      icon: LucideIcons.clock,
+                      onTap: _pickStartTime,
+                    ),
+                  ),
+                ],
               ],
-            ]),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '結束時間',
+              style: AppText.label(
+                size: 12,
+                weight: FontWeight.w500,
+                color: AppColors.dark,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: _DateTimeChip(
+                    label:
+                        '${_endDt.year}/${fmt2(_endDt.month)}/${fmt2(_endDt.day)}',
+                    icon: LucideIcons.calendar,
+                    onTap: _pickEndDate,
+                  ),
+                ),
+                if (!_allDay) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DateTimeChip(
+                      label: '${fmt2(_endDt.hour)}:${fmt2(_endDt.minute)}',
+                      icon: LucideIcons.clock,
+                      onTap: _pickEndTime,
+                    ),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 14),
-            Text('地點',
-                style: AppText.label(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppColors.dark)),
+            Text(
+              '地點',
+              style: AppText.label(
+                size: 12,
+                weight: FontWeight.w500,
+                color: AppColors.dark,
+              ),
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _locationCtrl,
@@ -1400,22 +1528,31 @@ class _AddEventModalState extends State<_AddEventModal> {
                 hintStyle: AppText.body(color: AppColors.muted),
                 filled: true,
                 fillColor: AppColors.bg,
-                prefixIcon: const Icon(LucideIcons.mapPin,
-                    size: 16, color: AppColors.muted),
+                prefixIcon: const Icon(
+                  LucideIcons.mapPin,
+                  size: 16,
+                  color: AppColors.muted,
+                ),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 11),
+                  horizontal: 14,
+                  vertical: 11,
+                ),
               ),
               style: AppText.body(size: 13),
             ),
             const SizedBox(height: 12),
-            Text('備註',
-                style: AppText.label(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppColors.dark)),
+            Text(
+              '備註',
+              style: AppText.label(
+                size: 12,
+                weight: FontWeight.w500,
+                color: AppColors.dark,
+              ),
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _descCtrl,
@@ -1426,40 +1563,49 @@ class _AddEventModalState extends State<_AddEventModal> {
                 filled: true,
                 fillColor: AppColors.bg,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 11),
+                  horizontal: 14,
+                  vertical: 11,
+                ),
               ),
               style: AppText.body(size: 13),
             ),
             const SizedBox(height: 14),
-            Text('顏色',
-                style: AppText.label(
-                    size: 12,
-                    weight: FontWeight.w500,
-                    color: AppColors.dark)),
+            Text(
+              '顏色',
+              style: AppText.label(
+                size: 12,
+                weight: FontWeight.w500,
+                color: AppColors.dark,
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: _colors
-                  .map((c) => GestureDetector(
-                        onTap: () => setState(() => _color = c),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          width: 32,
-                          height: 32,
-                          margin: const EdgeInsets.only(right: 10),
-                          decoration: BoxDecoration(
-                            color: c,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: _color == c
-                                    ? AppColors.dark
-                                    : Colors.transparent,
-                                width: 3),
+                  .map(
+                    (c) => GestureDetector(
+                      onTap: () => setState(() => _color = c),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 32,
+                        height: 32,
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _color == c
+                                ? AppColors.dark
+                                : Colors.transparent,
+                            width: 3,
                           ),
                         ),
-                      ))
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
             const SizedBox(height: 24),
@@ -1470,15 +1616,17 @@ class _AddEventModalState extends State<_AddEventModal> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                      color: AppColors.dark,
-                      borderRadius: BorderRadius.circular(16)),
+                    color: AppColors.dark,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                   child: Center(
                     child: Text(
                       isEdit ? '儲存修改' : '儲存行程',
                       style: AppText.body(
-                          size: 15,
-                          weight: FontWeight.w600,
-                          color: Colors.white),
+                        size: 15,
+                        weight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -1515,69 +1663,89 @@ class _EventDetailSheet extends StatelessWidget {
 
     return Container(
       decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
-              child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(4)))),
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
           const SizedBox(height: 20),
-          Row(children: [
-            Container(
+          Row(
+            children: [
+              Container(
                 width: 12,
                 height: 12,
-                decoration:
-                    BoxDecoration(color: e.color, shape: BoxShape.circle)),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Text(e.title,
-                    style: AppText.body(
-                        size: 18, weight: FontWeight.w600))),
-            GestureDetector(
-              onTap: onEdit,
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(LucideIcons.pencil,
-                    size: 18, color: AppColors.muted),
-              ),
-            ),
-            const SizedBox(width: 4),
-            GestureDetector(
-              onTap: () => showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('刪除行程'),
-                  content: Text('確定要刪除「${e.title}」嗎？'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('取消')),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        onDelete(e.id);
-                      },
-                      child: const Text('刪除',
-                          style: TextStyle(color: Colors.red)),
-                    ),
-                  ],
+                decoration: BoxDecoration(
+                  color: e.color,
+                  shape: BoxShape.circle,
                 ),
               ),
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(LucideIcons.trash2,
-                    size: 18, color: AppColors.muted),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  e.title,
+                  style: AppText.body(size: 18, weight: FontWeight.w600),
+                ),
               ),
-            ),
-          ]),
+              GestureDetector(
+                onTap: onEdit,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    LucideIcons.pencil,
+                    size: 18,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('刪除行程'),
+                    content: Text('確定要刪除「${e.title}」嗎？'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('取消'),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          onDelete(e.id);
+                        },
+                        child: const Text(
+                          '刪除',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    LucideIcons.trash2,
+                    size: 18,
+                    color: AppColors.muted,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           if (!e.isAllDay)
             _DetailRow(
@@ -1598,8 +1766,7 @@ class _EventDetailSheet extends StatelessWidget {
           ],
           if (e.description != null && e.description!.isNotEmpty) ...[
             const SizedBox(height: 10),
-            _DetailRow(
-                icon: LucideIcons.textAlignStart, text: e.description!),
+            _DetailRow(icon: LucideIcons.textAlignStart, text: e.description!),
           ],
           const SizedBox(height: 24),
           GestureDetector(
@@ -1608,14 +1775,19 @@ class _EventDetailSheet extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                  color: AppColors.dark,
-                  borderRadius: BorderRadius.circular(16)),
+                color: AppColors.dark,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Center(
-                  child: Text('關閉',
-                      style: AppText.body(
-                          size: 15,
-                          weight: FontWeight.w600,
-                          color: Colors.white))),
+                child: Text(
+                  '關閉',
+                  style: AppText.body(
+                    size: 15,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -1637,8 +1809,11 @@ class _DetailRow extends StatelessWidget {
         Icon(icon, size: 14, color: AppColors.muted),
         const SizedBox(width: 8),
         Expanded(
-            child: Text(text,
-                style: AppText.body(size: 13, color: AppColors.muted))),
+          child: Text(
+            text,
+            style: AppText.body(size: 13, color: AppColors.muted),
+          ),
+        ),
       ],
     );
   }
@@ -1650,16 +1825,18 @@ class _DateTimeChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  const _DateTimeChip(
-      {required this.label, required this.icon, required this.onTap});
+  const _DateTimeChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: AppColors.bg,
           borderRadius: BorderRadius.circular(12),
@@ -1671,10 +1848,12 @@ class _DateTimeChip extends StatelessWidget {
             Icon(icon, size: 13, color: AppColors.muted),
             const SizedBox(width: 6),
             Flexible(
-                child: Text(label,
-                    style: AppText.body(
-                        size: 13, weight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis)),
+              child: Text(
+                label,
+                style: AppText.body(size: 13, weight: FontWeight.w500),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       ),

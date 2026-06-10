@@ -21,14 +21,18 @@ class FirebaseEventRepo implements EventRepo {
     Query<Map<String, dynamic>> q = _col.orderBy('startTime');
     if (window != null) {
       q = q
-          .where('startTime',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(window.start))
-          .where('startTime',
-              isLessThanOrEqualTo: Timestamp.fromDate(window.end));
+          .where(
+            'startTime',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(window.start),
+          )
+          .where(
+            'startTime',
+            isLessThanOrEqualTo: Timestamp.fromDate(window.end),
+          );
     }
-    return q
-        .snapshots()
-        .map((s) => s.docs.map(CalendarEvent.fromFirestore).toList());
+    return q.snapshots().map(
+      (s) => s.docs.map(CalendarEvent.fromFirestore).toList(),
+    );
   }
 
   @override

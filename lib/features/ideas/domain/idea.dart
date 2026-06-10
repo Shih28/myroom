@@ -8,9 +8,9 @@ class IdeaLink {
   const IdeaLink({required this.title, required this.url});
 
   factory IdeaLink.fromMap(Map<String, dynamic> m) => IdeaLink(
-        title: (m['title'] as String?) ?? '',
-        url: (m['url'] as String?) ?? '',
-      );
+    title: (m['title'] as String?) ?? '',
+    url: (m['url'] as String?) ?? '',
+  );
 
   Map<String, dynamic> toMap() => {'title': title, 'url': url};
 }

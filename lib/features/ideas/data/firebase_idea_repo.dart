@@ -17,8 +17,11 @@ class FirebaseIdeaRepo implements IdeaRepo {
   final FirebaseFirestore _db;
   final String _uid;
 
-  DocumentReference<Map<String, dynamic>> get _root =>
-      _db.collection('users').doc(_uid).collection('ideas').doc(kIdeasRootDocId);
+  DocumentReference<Map<String, dynamic>> get _root => _db
+      .collection('users')
+      .doc(_uid)
+      .collection('ideas')
+      .doc(kIdeasRootDocId);
 
   CollectionReference<Map<String, dynamic>> get _ideasCol =>
       _root.collection('user_ideas');
@@ -26,8 +29,7 @@ class FirebaseIdeaRepo implements IdeaRepo {
   CollectionReference<Map<String, dynamic>> get _pinnedCol =>
       _root.collection('pinned_resources');
 
-  static String _docId(String url) =>
-      sha1.convert(utf8.encode(url)).toString();
+  static String _docId(String url) => sha1.convert(utf8.encode(url)).toString();
 
   @override
   Stream<List<Idea>> watchIdeas() => _ideasCol

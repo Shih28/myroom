@@ -16,7 +16,7 @@ class MrAddRow extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: CustomPaint(
-        painter: _DashedBorderPainter(
+        painter: const _DashedBorderPainter(
           color: AppColors.border,
           radius: 16,
           strokeWidth: 1.5,
@@ -27,7 +27,7 @@ class MrAddRow extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(LucideIcons.plus, size: 14, color: AppColors.muted),
+              const Icon(LucideIcons.plus, size: 14, color: AppColors.muted),
               const SizedBox(width: 6),
               Text(label, style: AppText.label(size: 13)),
             ],
@@ -62,11 +62,17 @@ class _DashedBorderPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Rect.fromLTWH(strokeWidth / 2, strokeWidth / 2, size.width - strokeWidth,
-            size.height - strokeWidth),
-        Radius.circular(radius),
-      ));
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            strokeWidth / 2,
+            strokeWidth / 2,
+            size.width - strokeWidth,
+            size.height - strokeWidth,
+          ),
+          Radius.circular(radius),
+        ),
+      );
 
     final metrics = path.computeMetrics();
     for (final metric in metrics) {

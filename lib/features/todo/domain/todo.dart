@@ -25,10 +25,10 @@ class TodoCategoryRef {
   );
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'label': label,
-        'colorVal': color.toARGB32(),
-      };
+    'id': id,
+    'label': label,
+    'colorVal': color.toARGB32(),
+  };
 
   factory TodoCategoryRef.fromMap(Map<String, dynamic>? m) {
     if (m == null) return undefined;
@@ -58,8 +58,8 @@ class Todo {
     this.category = TodoCategoryRef.undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   Todo copyWith({
     String? id,
@@ -69,16 +69,15 @@ class Todo {
     TodoCategoryRef? category,
     DateTime? createdAt,
     DateTime? updatedAt,
-  }) =>
-      Todo(
-        id: id ?? this.id,
-        title: title ?? this.title,
-        isCompleted: isCompleted ?? this.isCompleted,
-        sortOrder: sortOrder ?? this.sortOrder,
-        category: category ?? this.category,
-        createdAt: createdAt ?? this.createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  }) => Todo(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    isCompleted: isCompleted ?? this.isCompleted,
+    sortOrder: sortOrder ?? this.sortOrder,
+    category: category ?? this.category,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
 
   factory Todo.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? const <String, dynamic>{};
@@ -87,8 +86,7 @@ class Todo {
       title: (d['title'] as String?) ?? '',
       isCompleted: (d['isCompleted'] as bool?) ?? false,
       sortOrder: (d['sortOrder'] as int?) ?? 0,
-      category:
-          TodoCategoryRef.fromMap(d['category'] as Map<String, dynamic>?),
+      category: TodoCategoryRef.fromMap(d['category'] as Map<String, dynamic>?),
       createdAt: (d['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (d['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -97,9 +95,9 @@ class Todo {
   /// Client-writable DATA fields only. createdAt/updatedAt are injected by the
   /// repo.
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'isCompleted': isCompleted,
-        'sortOrder': sortOrder,
-        'category': category.toMap(),
-      };
+    'title': title,
+    'isCompleted': isCompleted,
+    'sortOrder': sortOrder,
+    'category': category.toMap(),
+  };
 }

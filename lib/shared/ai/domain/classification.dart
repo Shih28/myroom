@@ -11,7 +11,11 @@ class AiAttachmentRef {
   final String type; // image | audio | file
   final String name;
 
-  const AiAttachmentRef({required this.i, required this.type, required this.name});
+  const AiAttachmentRef({
+    required this.i,
+    required this.type,
+    required this.name,
+  });
 
   Map<String, dynamic> toJson() => {'i': i, 'type': type, 'name': name};
 }

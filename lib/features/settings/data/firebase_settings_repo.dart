@@ -20,9 +20,9 @@ class FirebaseSettingsRepo implements SettingsRepo {
       .doc(kSettingsDocId);
 
   @override
-  Stream<AppSettings> watchSettings() => _doc
-      .snapshots()
-      .map((d) => d.exists ? AppSettings.fromFirestore(d) : AppSettings.defaults);
+  Stream<AppSettings> watchSettings() => _doc.snapshots().map(
+    (d) => d.exists ? AppSettings.fromFirestore(d) : AppSettings.defaults,
+  );
 
   @override
   Future<Result<void>> updateSettings({

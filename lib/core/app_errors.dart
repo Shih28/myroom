@@ -27,7 +27,11 @@ class AppErrors {
             f.userMessage,
             style: AppText.body(size: 13, color: AppColors.dark),
           ),
-          leading: const Icon(Icons.error_outline, color: AppColors.rose, size: 20),
+          leading: const Icon(
+            Icons.error_outline,
+            color: AppColors.rose,
+            size: 20,
+          ),
           actions: [
             TextButton(
               onPressed: () => messenger.hideCurrentMaterialBanner(),

@@ -29,7 +29,8 @@ class CalendarEvent {
   });
 
   factory CalendarEvent.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> doc) {
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data() ?? const <String, dynamic>{};
     return CalendarEvent(
       id: doc.id,
@@ -46,14 +47,14 @@ class CalendarEvent {
 
   /// Client-writable DATA fields only. `createdAt` is injected by the repo.
   Map<String, dynamic> toJson() => {
-        'title': title,
-        'description': description,
-        'location': location,
-        'startTime': Timestamp.fromDate(startTime),
-        'endTime': Timestamp.fromDate(endTime),
-        'isAllDay': isAllDay,
-        'color': color.toARGB32(),
-      };
+    'title': title,
+    'description': description,
+    'location': location,
+    'startTime': Timestamp.fromDate(startTime),
+    'endTime': Timestamp.fromDate(endTime),
+    'isAllDay': isAllDay,
+    'color': color.toARGB32(),
+  };
 
   CalendarEvent copyWith({
     String? id,
@@ -65,16 +66,15 @@ class CalendarEvent {
     bool? isAllDay,
     Color? color,
     DateTime? createdAt,
-  }) =>
-      CalendarEvent(
-        id: id ?? this.id,
-        title: title ?? this.title,
-        description: description ?? this.description,
-        location: location ?? this.location,
-        startTime: startTime ?? this.startTime,
-        endTime: endTime ?? this.endTime,
-        isAllDay: isAllDay ?? this.isAllDay,
-        color: color ?? this.color,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  }) => CalendarEvent(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    description: description ?? this.description,
+    location: location ?? this.location,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime ?? this.endTime,
+    isAllDay: isAllDay ?? this.isAllDay,
+    color: color ?? this.color,
+    createdAt: createdAt ?? this.createdAt,
+  );
 }

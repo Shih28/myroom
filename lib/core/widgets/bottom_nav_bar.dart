@@ -59,7 +59,9 @@ class BottomNavBar extends StatelessWidget {
                   Icon(
                     tab.icon,
                     size: 18,
-                    color: active ? AppColors.dark : Colors.white.withOpacity(0.38),
+                    color: active
+                        ? AppColors.dark
+                        : Colors.white.withOpacity(0.38),
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -67,7 +69,9 @@ class BottomNavBar extends StatelessWidget {
                     style: AppText.caption(
                       size: 10,
                       weight: active ? FontWeight.w600 : FontWeight.w400,
-                      color: active ? AppColors.dark : Colors.white.withOpacity(0.38),
+                      color: active
+                          ? AppColors.dark
+                          : Colors.white.withOpacity(0.38),
                     ),
                   ),
                 ],

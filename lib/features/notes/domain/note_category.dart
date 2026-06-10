@@ -43,11 +43,11 @@ class NoteCategory {
   );
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'colorVal': color.toARGB32(),
-        'iconName': iconName,
-        'sortOrder': sortOrder,
-      };
+    'label': label,
+    'colorVal': color.toARGB32(),
+    'iconName': iconName,
+    'sortOrder': sortOrder,
+  };
 
   NoteCategory copyWith({
     String? id,
@@ -55,12 +55,11 @@ class NoteCategory {
     Color? color,
     String? iconName,
     int? sortOrder,
-  }) =>
-      NoteCategory(
-        id: id ?? this.id,
-        label: label ?? this.label,
-        color: color ?? this.color,
-        iconName: iconName ?? this.iconName,
-        sortOrder: sortOrder ?? this.sortOrder,
-      );
+  }) => NoteCategory(
+    id: id ?? this.id,
+    label: label ?? this.label,
+    color: color ?? this.color,
+    iconName: iconName ?? this.iconName,
+    sortOrder: sortOrder ?? this.sortOrder,
+  );
 }

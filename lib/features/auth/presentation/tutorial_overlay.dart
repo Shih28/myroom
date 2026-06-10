@@ -44,7 +44,9 @@ class _TutorialOverlayState extends State<TutorialOverlay>
   void initState() {
     super.initState();
     _fadeCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 220));
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
     _fade = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeIn);
     _fadeCtrl.forward();
   }
@@ -80,9 +82,10 @@ class _TutorialOverlayState extends State<TutorialOverlay>
               borderRadius: BorderRadius.circular(24),
               boxShadow: const [
                 BoxShadow(
-                    color: Color(0x28000000),
-                    blurRadius: 32,
-                    offset: Offset(0, 8)),
+                  color: Color(0x28000000),
+                  blurRadius: 32,
+                  offset: Offset(0, 8),
+                ),
               ],
             ),
             child: Column(
@@ -139,7 +142,10 @@ class _TutorialOverlayState extends State<TutorialOverlay>
                       page.description,
                       textAlign: TextAlign.center,
                       style: AppText.body(
-                          size: 14, color: AppColors.muted, height: 1.55),
+                        size: 14,
+                        color: AppColors.muted,
+                        height: 1.55,
+                      ),
                     ),
                   ),
                 ),
@@ -161,7 +167,9 @@ class _TutorialOverlayState extends State<TutorialOverlay>
                       const Spacer(),
                       _NavButton(
                         label: isLast ? 'Get Started' : 'Next',
-                        icon: isLast ? LucideIcons.check : LucideIcons.chevronRight,
+                        icon: isLast
+                            ? LucideIcons.check
+                            : LucideIcons.chevronRight,
                         iconOnRight: true,
                         onTap: isLast ? widget.onDone : () => _goTo(_page + 1),
                         filled: true,
@@ -182,10 +190,11 @@ class _TutorialPage {
   final String title;
   final String description;
   final Widget illustration;
-  const _TutorialPage(
-      {required this.title,
-      required this.description,
-      required this.illustration});
+  const _TutorialPage({
+    required this.title,
+    required this.description,
+    required this.illustration,
+  });
 }
 
 class _NavButton extends StatelessWidget {
@@ -209,15 +218,17 @@ class _NavButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (!iconOnRight) ...[Icon(icon, size: 15), const SizedBox(width: 5)],
-        Text(label,
-            style: AppText.body(
-              size: 13,
-              weight: FontWeight.w500,
-              color: filled ? Colors.white : AppColors.dark,
-            )),
+        Text(
+          label,
+          style: AppText.body(
+            size: 13,
+            weight: FontWeight.w500,
+            color: filled ? Colors.white : AppColors.dark,
+          ),
+        ),
         if (iconOnRight) ...[
           const SizedBox(width: 5),
-          Icon(icon, size: 15, color: filled ? Colors.white : AppColors.dark)
+          Icon(icon, size: 15, color: filled ? Colors.white : AppColors.dark),
         ],
       ],
     );
@@ -258,12 +269,21 @@ class _IllustrationWelcome extends StatelessWidget {
                 color: AppColors.dark,
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: const Icon(LucideIcons.house, color: Colors.white, size: 28),
+              child: const Icon(
+                LucideIcons.house,
+                color: Colors.white,
+                size: 28,
+              ),
             ),
             const SizedBox(height: 14),
-            Text('myroom',
-                style: AppText.display(
-                    size: 26, italic: true, weight: FontWeight.w400)),
+            Text(
+              'myroom',
+              style: AppText.display(
+                size: 26,
+                italic: true,
+                weight: FontWeight.w400,
+              ),
+            ),
             const SizedBox(height: 4),
             Text('your personal space', style: AppText.caption(size: 11)),
           ],
@@ -307,13 +327,21 @@ class _IllustrationAdd extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child:
-                        const Icon(LucideIcons.plus, color: Colors.white, size: 18),
+                    child: const Icon(
+                      LucideIcons.plus,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                   const Spacer(),
-                  Text('myroom',
-                      style: AppText.display(
-                          size: 18, italic: true, weight: FontWeight.w400)),
+                  Text(
+                    'myroom',
+                    style: AppText.display(
+                      size: 18,
+                      italic: true,
+                      weight: FontWeight.w400,
+                    ),
+                  ),
                   const Spacer(),
                   Container(
                     width: 32,
@@ -322,8 +350,11 @@ class _IllustrationAdd extends StatelessWidget {
                       color: AppColors.border,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child:
-                        Icon(LucideIcons.search, size: 14, color: AppColors.muted),
+                    child: const Icon(
+                      LucideIcons.search,
+                      size: 14,
+                      color: AppColors.muted,
+                    ),
                   ),
                 ],
               ),
@@ -335,11 +366,17 @@ class _IllustrationAdd extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(LucideIcons.cornerLeftUp, size: 20, color: AppColors.amber),
+                const Icon(
+                  LucideIcons.cornerLeftUp,
+                  size: 20,
+                  color: AppColors.amber,
+                ),
                 const SizedBox(height: 4),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.amber,
                     borderRadius: BorderRadius.circular(8),
@@ -347,7 +384,10 @@ class _IllustrationAdd extends StatelessWidget {
                   child: Text(
                     "Tap here!",
                     style: AppText.body(
-                        size: 12, color: Colors.white, weight: FontWeight.w600),
+                      size: 12,
+                      color: Colors.white,
+                      weight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -403,10 +443,16 @@ class _IllustrationNavBar extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(LucideIcons.pointer, size: 28, color: AppColors.muted),
+                  const Icon(
+                    LucideIcons.pointer,
+                    size: 28,
+                    color: AppColors.muted,
+                  ),
                   const SizedBox(height: 8),
-                  Text('Click to navigate',
-                      style: AppText.body(size: 13, color: AppColors.muted)),
+                  Text(
+                    'Click to navigate',
+                    style: AppText.body(size: 13, color: AppColors.muted),
+                  ),
                 ],
               ),
             ),
@@ -424,8 +470,10 @@ class _IllustrationNavBar extends StatelessWidget {
                 final (icon, label) = _tabs[i];
                 final active = i == 0;
                 return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
                   decoration: active
                       ? BoxDecoration(
                           color: Colors.white.withOpacity(0.15),
@@ -435,14 +483,19 @@ class _IllustrationNavBar extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(icon,
-                          size: 14,
-                          color: active ? Colors.white : Colors.white38),
+                      Icon(
+                        icon,
+                        size: 14,
+                        color: active ? Colors.white : Colors.white38,
+                      ),
                       const SizedBox(height: 2),
-                      Text(label,
-                          style: AppText.caption(
-                              size: 9,
-                              color: active ? Colors.white : Colors.white38)),
+                      Text(
+                        label,
+                        style: AppText.caption(
+                          size: 9,
+                          color: active ? Colors.white : Colors.white38,
+                        ),
+                      ),
                     ],
                   ),
                 );

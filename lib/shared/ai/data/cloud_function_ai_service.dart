@@ -19,7 +19,8 @@ class CloudFunctionAiService implements AiService {
 
   final FirebaseFunctions _functions;
 
-  HttpsCallable _fn(String name, {Duration? timeout}) => _functions.httpsCallable(
+  HttpsCallable _fn(String name, {Duration? timeout}) =>
+      _functions.httpsCallable(
         name,
         options: HttpsCallableOptions(
           timeout: timeout ?? const Duration(seconds: 70),
@@ -41,10 +42,12 @@ class CloudFunctionAiService implements AiService {
 
   @override
   Future<Result<String>> chat(String message) => _guard(() async {
-        final res = await _fn('chat', timeout: const Duration(seconds: 120))
-            .call<Object?>({'message': message});
-        return (_asMap(res.data)['reply'] as String?) ?? '';
-      });
+    final res = await _fn(
+      'chat',
+      timeout: const Duration(seconds: 120),
+    ).call<Object?>({'message': message});
+    return (_asMap(res.data)['reply'] as String?) ?? '';
+  });
 
   @override
   Future<Result<List<ClassificationItem>>> classifyMultiInput({
@@ -53,83 +56,79 @@ class CloudFunctionAiService implements AiService {
     String fileText = '',
     List<AiAttachmentRef> attachments = const [],
     String? userSpecifiedCat,
-  }) =>
-      _guard(() async {
-        final res = await _fn('classifyMultiInput').call<Object?>({
-          'text': text,
-          'images': images,
-          'fileText': fileText,
-          'attachments': attachments.map((a) => a.toJson()).toList(),
-          'userSpecifiedCat': userSpecifiedCat ?? '',
-        });
-        final items = (_asMap(res.data)['items'] as List?) ?? const [];
-        return items
-            .map((e) =>
-                ClassificationItem.fromJson(Map<String, dynamic>.from(e as Map)))
-            .whereType<ClassificationItem>()
-            .toList();
-      });
+  }) => _guard(() async {
+    final res = await _fn('classifyMultiInput').call<Object?>({
+      'text': text,
+      'images': images,
+      'fileText': fileText,
+      'attachments': attachments.map((a) => a.toJson()).toList(),
+      'userSpecifiedCat': userSpecifiedCat ?? '',
+    });
+    final items = (_asMap(res.data)['items'] as List?) ?? const [];
+    return items
+        .map(
+          (e) =>
+              ClassificationItem.fromJson(Map<String, dynamic>.from(e as Map)),
+        )
+        .whereType<ClassificationItem>()
+        .toList();
+  });
 
   @override
   Future<Result<List<AiResource>>> fetchRecommendations(
     List<String> ideaTexts,
-  ) =>
-      _guard(() async {
-        final res = await _fn('fetchRecommendations')
-            .call<Object?>({'ideaTexts': ideaTexts});
-        final list = (_asMap(res.data)['resources'] as List?) ?? const [];
-        return list
-            .map((e) => AiResource.fromJson(Map<String, dynamic>.from(e as Map)))
-            .toList();
-      });
+  ) => _guard(() async {
+    final res = await _fn(
+      'fetchRecommendations',
+    ).call<Object?>({'ideaTexts': ideaTexts});
+    final list = (_asMap(res.data)['resources'] as List?) ?? const [];
+    return list
+        .map((e) => AiResource.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  });
 
   @override
   Future<Result<String>> generateEraInsight({
     required String eraLabel,
     required String dataSummary,
-  }) =>
-      _guard(() async {
-        final res = await _fn('generateEraInsight').call<Object?>({
-          'eraLabel': eraLabel,
-          'dataSummary': dataSummary,
-        });
-        return (_asMap(res.data)['text'] as String?) ?? '';
-      });
+  }) => _guard(() async {
+    final res = await _fn(
+      'generateEraInsight',
+    ).call<Object?>({'eraLabel': eraLabel, 'dataSummary': dataSummary});
+    return (_asMap(res.data)['text'] as String?) ?? '';
+  });
 
   @override
   Future<Result<String>> transcribe({
     required Uint8List audioBytes,
     required String filename,
-  }) =>
-      _guard(() async {
-        final res =
-            await _fn('transcribe', timeout: const Duration(seconds: 120))
-                .call<Object?>({
+  }) => _guard(() async {
+    final res = await _fn('transcribe', timeout: const Duration(seconds: 120))
+        .call<Object?>({
           'audioB64': base64Encode(audioBytes),
           'filename': filename,
         });
-        return (_asMap(res.data)['transcript'] as String?) ?? '';
-      });
+    return (_asMap(res.data)['transcript'] as String?) ?? '';
+  });
 
   @override
   Future<Result<String>> exportRecap(String recapId) => _guard(() async {
-        final res = await _fn('exportRecap', timeout: const Duration(seconds: 120))
-            .call<Object?>({'recapId': recapId});
-        return (_asMap(res.data)['storagePath'] as String?) ?? '';
-      });
+    final res = await _fn(
+      'exportRecap',
+      timeout: const Duration(seconds: 120),
+    ).call<Object?>({'recapId': recapId});
+    return (_asMap(res.data)['storagePath'] as String?) ?? '';
+  });
 
   @override
   Future<Result<String>> exportAchievement({
     required String achievementId,
     required String era,
-  }) =>
-      _guard(() async {
-        final res =
-            await _fn('exportAchievement', timeout: const Duration(seconds: 120))
-                .call<Object?>({
-          'achievementId': achievementId,
-          'era': era,
-        });
-        return (_asMap(res.data)['storagePath'] as String?) ?? '';
-      });
+  }) => _guard(() async {
+    final res = await _fn(
+      'exportAchievement',
+      timeout: const Duration(seconds: 120),
+    ).call<Object?>({'achievementId': achievementId, 'era': era});
+    return (_asMap(res.data)['storagePath'] as String?) ?? '';
+  });
 }

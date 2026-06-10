@@ -9,27 +9,29 @@ class FirebaseChatRepo implements ChatRepo {
   final FirebaseFirestore _db;
   final String _uid;
 
-  static const int _pageSize = 50;
-
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('users').doc(_uid).collection('chat_messages');
 
   @override
   Stream<List<ChatMessage>> watchMessages() => _col
       .orderBy('createdAt', descending: true)
-      .limit(_pageSize)
+      .limit(ChatRepo.pageSize)
       .snapshots()
-      .map((s) => s.docs.map(ChatMessage.fromFirestore).toList().reversed.toList());
+      .map(
+        (s) => s.docs.map(ChatMessage.fromFirestore).toList().reversed.toList(),
+      );
 
   @override
-  Future<List<ChatMessage>> loadOlder(
-    DocumentSnapshot<Map<String, dynamic>> cursor,
-  ) async {
-    final snap = await _col
-        .orderBy('createdAt', descending: true)
-        .startAfterDocument(cursor)
-        .limit(_pageSize)
-        .get();
+  Future<List<ChatMessage>> loadOlder(ChatMessage cursor) async {
+    // Page strictly after the cursor doc (the oldest one displayed). Using the
+    // doc snapshot as the cursor is collision-proof vs. a raw timestamp; if the
+    // cursor was deleted, fall back to its createdAt value.
+    final cursorDoc = await _col.doc(cursor.id).get();
+    var q = _col.orderBy('createdAt', descending: true);
+    q = cursorDoc.exists
+        ? q.startAfterDocument(cursorDoc)
+        : q.startAfter([Timestamp.fromDate(cursor.createdAt)]);
+    final snap = await q.limit(ChatRepo.pageSize).get();
     return snap.docs.map(ChatMessage.fromFirestore).toList().reversed.toList();
   }
 }

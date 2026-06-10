@@ -22,16 +22,16 @@ class TodoCategory {
     String? label,
     Color? color,
     int? sortOrder,
-  }) =>
-      TodoCategory(
-        id: id ?? this.id,
-        label: label ?? this.label,
-        color: color ?? this.color,
-        sortOrder: sortOrder ?? this.sortOrder,
-      );
+  }) => TodoCategory(
+    id: id ?? this.id,
+    label: label ?? this.label,
+    color: color ?? this.color,
+    sortOrder: sortOrder ?? this.sortOrder,
+  );
 
   factory TodoCategory.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> doc) {
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final d = doc.data() ?? const <String, dynamic>{};
     return TodoCategory(
       id: doc.id,
@@ -42,8 +42,8 @@ class TodoCategory {
   }
 
   Map<String, dynamic> toJson() => {
-        'label': label,
-        'colorVal': color.toARGB32(),
-        'sortOrder': sortOrder,
-      };
+    'label': label,
+    'colorVal': color.toARGB32(),
+    'sortOrder': sortOrder,
+  };
 }
