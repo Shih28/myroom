@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../app_shell/app_scaffold.dart';
 import '../app_shell/authenticated_scope.dart';
+import '../app_shell/swipe_shell.dart';
 import '../features/add/presentation/add_overlay.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/calendar/presentation/calendar_page.dart';
@@ -45,9 +46,12 @@ GoRouter buildRouter(AuthRepo authRepo) {
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) => AuthenticatedScope(child: child),
         routes: [
-          StatefulShellRoute.indexedStack(
+          StatefulShellRoute(
             builder: (context, state, navigationShell) =>
                 AppScaffold(navigationShell: navigationShell),
+            navigatorContainerBuilder: (context, navigationShell, children) =>
+                SwipeShell(
+                    navigationShell: navigationShell, children: children),
             branches: [
               StatefulShellBranch(routes: [
                 GoRoute(

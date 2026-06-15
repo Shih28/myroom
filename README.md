@@ -33,7 +33,8 @@ routed to a note are uploaded to Storage (content-addressed by `sha256`).
 
 - **State** — `go_router` `StatefulShellRoute` shell + the `provider` package. Shared state is read
   only from Firestore streams (`StreamProvider`); writes go through repositories and return a
-  `Result`; the UI re-renders from the stream (no hand-rolled optimistic store).
+  `Result`; the UI re-renders from the stream (no hand-rolled optimistic store). Tabs swipe left/right
+  as one strip; an edge-swipe from the calendar reveals Smart Add (`app_shell/swipe_shell.dart`).
 - **Persistence** — Firestore only, per-user isolated under `users/{uid}/…`. Category metadata is
   denormalized onto todos/notes and kept fresh by a Cloud Function.
 - **AI / backend** — Cloud Functions (region `us-central1`) on the OpenAI Responses API. Seven
@@ -47,7 +48,7 @@ routed to a note are uploaded to Storage (content-addressed by `sha256`).
 ```
 lib/
 ├── app.dart, main.dart           # root provider tier + bootstrap
-├── app_shell/                    # authenticated scope + scaffold (nav, tz patch, tutorial)
+├── app_shell/                    # authenticated scope + scaffold + swipe shell (nav, tz patch, tutorial)
 ├── router/                       # go_router config + auth redirect
 ├── core/                         # result/failures, theme, shared widgets, constants
 ├── features/<feature>/           # domain/ (model + repo interface), data/ (Firebase repo), presentation/

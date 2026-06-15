@@ -36,7 +36,12 @@ import '../../todo/domain/todo_repo.dart';
 /// transcribed and PDF/text extracted first), then writes each resulting item to
 /// the matching repo — routing any attachments to their note.
 class AddOverlay extends StatefulWidget {
-  const AddOverlay({super.key});
+  const AddOverlay({super.key, this.onClose});
+
+  /// When the overlay is embedded as a page in the swipe strip, [onClose] slides
+  /// the strip back to the calendar; when pushed as a route it is null and the
+  /// overlay pops instead.
+  final VoidCallback? onClose;
 
   @override
   State<AddOverlay> createState() => _AddOverlayState();
@@ -186,7 +191,6 @@ class _AddOverlayState extends State<AddOverlay> {
     final ideaRepo = context.read<IdeaRepo>();
     final noteRepo = context.read<NoteRepo>();
     final recapRepo = context.read<RecapRepo>();
-    final navigator = Navigator.of(context);
 
     setState(() {
       _processing = true;
@@ -311,7 +315,7 @@ class _AddOverlayState extends State<AddOverlay> {
     }
 
     if (!mounted) return;
-    navigator.pop();
+    _close();
     scaffoldMessengerKey.currentState
       ?..clearSnackBars()
       ..showSnackBar(SnackBar(
@@ -320,6 +324,31 @@ class _AddOverlayState extends State<AddOverlay> {
         backgroundColor: AppColors.dark,
         behavior: SnackBarBehavior.floating,
       ));
+  }
+
+  // Closes the overlay: embedded in the swipe strip it resets the draft and
+  // slides back to the calendar via [AddOverlay.onClose]; as a pushed route it
+  // pops instead.
+  void _close() {
+    final onClose = widget.onClose;
+    if (onClose != null) {
+      _resetForm();
+      onClose();
+    } else if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  void _resetForm() {
+    if (!mounted) return;
+    setState(() {
+      _textCtrl.clear();
+      _attachments.clear();
+      _recording = false;
+      _recordingPath = null;
+      _processing = false;
+      _status = '';
+    });
   }
 
   TodoCategoryRef _todoRef(String id, List<TodoCategory> cats) {
@@ -368,9 +397,7 @@ class _AddOverlayState extends State<AddOverlay> {
                   MrIconButton(
                     icon: LucideIcons.x,
                     iconSize: 17,
-                    onTap: _processing
-                        ? () {}
-                        : () => Navigator.of(context).pop(),
+                    onTap: _processing ? () {} : _close,
                   ),
                   const Spacer(),
                   Text('新增',
