@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File, Platform;
 import 'dart:typed_data';
@@ -14,27 +15,15 @@ import 'package:record/record.dart';
 
 import '../../../core/app_errors.dart';
 import '../../../core/constants.dart';
-import '../../../core/result.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/mr_icon_button.dart';
-import '../../../shared/ai/domain/ai_service.dart';
-import '../../../shared/ai/domain/classification.dart';
-import '../../calendar/domain/event.dart';
-import '../../calendar/domain/event_repo.dart';
-import '../../ideas/domain/idea_repo.dart';
 import '../../notes/domain/note.dart';
-import '../../notes/domain/note_category.dart';
-import '../../notes/domain/note_repo.dart';
-import '../../recap/domain/recap.dart';
-import '../../recap/domain/recap_repo.dart';
-import '../../todo/domain/todo.dart';
-import '../../todo/domain/todo_category.dart';
-import '../../todo/domain/todo_repo.dart';
+import 'smart_add_controller.dart';
 
 /// Smart Add overlay (AI_proxy.md §5, Storage.md §4). Collects free text +
-/// attachments, classifies them through `classifyMultiInput` (audio is
-/// transcribed and PDF/text extracted first), then writes each resulting item to
-/// the matching repo — routing any attachments to their note.
+/// attachments and hands them to [SmartAddController] on submit, then closes
+/// immediately — transcription + classification run in the background and the
+/// result surfaces as the shell's Smart Add bar.
 class AddOverlay extends StatefulWidget {
   const AddOverlay({super.key, this.onClose});
 
@@ -53,8 +42,6 @@ class _AddOverlayState extends State<AddOverlay> {
   final _recorder = AudioRecorder();
   String? _recordingPath;
   bool _recording = false;
-  bool _processing = false;
-  String _status = '';
 
   // Mirrors the note editor: attachment capture is native-only (Phase 1).
   bool get _attachmentsEnabled => !kIsWeb;
@@ -179,151 +166,20 @@ class _AddOverlayState extends State<AddOverlay> {
 
   // ── Smart Add submission ──────────────────────────────────────────────────
 
-  Future<void> _submit() async {
+  void _submit() {
     final text = _textCtrl.text.trim();
-    if ((text.isEmpty && _attachments.isEmpty) || _processing) return;
+    if (text.isEmpty && _attachments.isEmpty) return;
     FocusScope.of(context).unfocus();
 
-    // Capture everything that depends on `context` before any async gap.
-    final ai = context.read<AiService>();
-    final todoRepo = context.read<TodoRepo>();
-    final eventRepo = context.read<EventRepo>();
-    final ideaRepo = context.read<IdeaRepo>();
-    final noteRepo = context.read<NoteRepo>();
-    final recapRepo = context.read<RecapRepo>();
-
-    setState(() {
-      _processing = true;
-      _status = '整理中…';
-    });
-
-    // 1. Transcribe any audio that has no transcript yet.
-    for (int i = 0; i < _attachments.length; i++) {
-      final a = _attachments[i];
-      if (a.type == 'audio' &&
-          (a.extractedText == null || a.extractedText!.isEmpty)) {
-        if (mounted) setState(() => _status = '轉錄語音中…');
-        final r =
-            await ai.transcribe(audioBytes: a.bytes, filename: a.filename);
-        if (r is Ok<String>) {
-          _attachments[i] = PendingAttachment(
-            type: a.type,
-            filename: a.filename,
-            bytes: a.bytes,
-            ext: a.ext,
-            extractedText: r.value,
-          );
-        }
-      }
-    }
-
-    // 2. Build the classification inputs: base64 images, concatenated extracted
-    //    text (audio/file), and an attachment manifest with absolute indices.
-    final images = <String>[];
-    final fileTextParts = <String>[];
-    final manifest = <AiAttachmentRef>[];
-    for (int i = 0; i < _attachments.length; i++) {
-      final a = _attachments[i];
-      manifest.add(AiAttachmentRef(i: i, type: a.type, name: a.filename));
-      if (a.type == 'image') {
-        images.add(base64Encode(a.bytes));
-      } else if (a.extractedText != null && a.extractedText!.isNotEmpty) {
-        fileTextParts.add('【${a.filename}】\n${a.extractedText}');
-      }
-    }
-
-    if (mounted) setState(() => _status = 'AI 分類中…');
-    final result = await ai.classifyMultiInput(
-      text: text,
-      images: images,
-      fileText: fileTextParts.join('\n\n'),
-      attachments: manifest,
-    );
-    if (!mounted) return;
-    if (result is! Ok<List<ClassificationItem>>) {
-      setState(() {
-        _processing = false;
-        _status = '';
-      });
-      return; // error already surfaced by AiService
-    }
-    final items = result.value;
-    if (items.isEmpty) {
-      setState(() {
-        _processing = false;
-        _status = '';
-      });
-      _toast('AI 沒有辨識出可新增的項目');
-      return;
-    }
-
-    // 3. Resolve categories once (ids → denormalized snapshots).
-    if (mounted) setState(() => _status = '寫入中…');
-    final todoCats = await todoRepo.watchTodoCategories().first;
-    final noteCats = await noteRepo.watchNoteCategories().first;
-
-    // 4. Write each item to its repo, routing attachments to notes.
-    int count = 0;
-    for (final item in items) {
-      switch (item) {
-        case ClassifiedTodo t:
-          await todoRepo.add(Todo(
-            id: '',
-            title: t.text,
-            category: _todoRef(t.catId, todoCats),
-          ));
-          count++;
-        case ClassifiedTodoWithTime tt:
-          await eventRepo.add(CalendarEvent(
-            id: '',
-            title: tt.text,
-            startTime: tt.start,
-            endTime: tt.end,
-            color: AppColors.sage,
-            createdAt: DateTime.now(),
-          ));
-          count++;
-        case ClassifiedIdea idea:
-          await ideaRepo.add(idea.text);
-          count++;
-        case ClassifiedNote note:
-          final routed = note.attachmentIndices
-              .where((i) => i >= 0 && i < _attachments.length)
-              .map((i) => _attachments[i])
-              .toList();
-          await noteRepo.add(
-            Note(
-              id: '',
-              dateKey: note.dateKey,
-              content: note.content,
-              category: _noteRef(note.noteCatId, noteCats),
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-            ),
-            attachments: routed,
-          );
-          count++;
-        case ClassifiedRecap r:
-          await recapRepo.add(Recap(
-            id: '',
-            title: r.title.isEmpty ? '回顧' : r.title,
-            content: r.description,
-            createdAt: DateTime.now(),
-          ));
-          count++;
-      }
-    }
-
-    if (!mounted) return;
+    // Hand the submission to the background controller (transcription +
+    // classification run off-screen); the result surfaces as the shell's Smart
+    // Add bar. Attachments are copied so resetting the form here can't mutate
+    // the in-flight job.
+    unawaited(context.read<SmartAddController>().start(SmartAddInput(
+          text: text,
+          attachments: List<PendingAttachment>.from(_attachments),
+        )));
     _close();
-    scaffoldMessengerKey.currentState
-      ?..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text('已透過 AI 新增 $count 個項目',
-            style: AppText.body(size: 13, color: Colors.white)),
-        backgroundColor: AppColors.dark,
-        behavior: SnackBarBehavior.floating,
-      ));
   }
 
   // Closes the overlay: embedded in the swipe strip it resets the draft and
@@ -346,28 +202,7 @@ class _AddOverlayState extends State<AddOverlay> {
       _attachments.clear();
       _recording = false;
       _recordingPath = null;
-      _processing = false;
-      _status = '';
     });
-  }
-
-  TodoCategoryRef _todoRef(String id, List<TodoCategory> cats) {
-    for (final c in cats) {
-      if (c.id == id) {
-        return TodoCategoryRef(id: c.id, label: c.label, color: c.color);
-      }
-    }
-    return TodoCategoryRef.undefined;
-  }
-
-  NoteCategoryRef _noteRef(String id, List<NoteCategory> cats) {
-    for (final c in cats) {
-      if (c.id == id) {
-        return NoteCategoryRef(
-            id: c.id, label: c.label, color: c.color, iconName: c.iconName);
-      }
-    }
-    return NoteCategoryRef.undefined;
   }
 
   void _toast(String msg) {
@@ -397,7 +232,7 @@ class _AddOverlayState extends State<AddOverlay> {
                   MrIconButton(
                     icon: LucideIcons.x,
                     iconSize: 17,
-                    onTap: _processing ? () {} : _close,
+                    onTap: _close,
                   ),
                   const Spacer(),
                   Text('新增',
@@ -444,7 +279,6 @@ class _AddOverlayState extends State<AddOverlay> {
                         controller: _textCtrl,
                         maxLines: 8,
                         minLines: 5,
-                        enabled: !_processing,
                         decoration: InputDecoration(
                           hintText:
                               '例如：明天早上十點開會、記得買牛奶、想學插畫、今天心情很好…',
@@ -472,10 +306,7 @@ class _AddOverlayState extends State<AddOverlay> {
                           for (final a in _attachments)
                             _attachmentChip(
                                 a,
-                                _processing
-                                    ? null
-                                    : () =>
-                                        setState(() => _attachments.remove(a))),
+                                () => setState(() => _attachments.remove(a))),
                         ],
                       ),
                     ],
@@ -494,45 +325,27 @@ class _AddOverlayState extends State<AddOverlay> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: _processing ? null : _submit,
+                      onTap: _submit,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
-                          color: _processing
-                              ? AppColors.dark.withOpacity(0.6)
-                              : AppColors.dark,
+                          color: AppColors.dark,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
-                          child: _processing
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const SizedBox(
-                                      width: 15,
-                                      height: 15,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2, color: Colors.white),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Text(_status,
-                                        style: AppText.body(
-                                            size: 14, color: Colors.white)),
-                                  ],
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(LucideIcons.sparkles,
-                                        size: 16, color: AppColors.amber),
-                                    const SizedBox(width: 8),
-                                    Text('智慧新增',
-                                        style: AppText.body(
-                                            size: 15,
-                                            weight: FontWeight.w600,
-                                            color: Colors.white)),
-                                  ],
-                                ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(LucideIcons.sparkles,
+                                  size: 16, color: AppColors.amber),
+                              const SizedBox(width: 8),
+                              Text('智慧新增',
+                                  style: AppText.body(
+                                      size: 15,
+                                      weight: FontWeight.w600,
+                                      color: Colors.white)),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -541,7 +354,7 @@ class _AddOverlayState extends State<AddOverlay> {
                     const SizedBox(width: 8),
                     _actionBtn(
                       icon: LucideIcons.paperclip,
-                      onTap: _processing ? null : _pickFile,
+                      onTap: _pickFile,
                     ),
                     const SizedBox(width: 8),
                     _actionBtn(
@@ -549,7 +362,7 @@ class _AddOverlayState extends State<AddOverlay> {
                       iconColor: _recording ? AppColors.rose : null,
                       borderColor:
                           _recording ? AppColors.rose.withOpacity(0.4) : null,
-                      onTap: _processing ? null : _toggleRecording,
+                      onTap: _toggleRecording,
                     ),
                   ],
                 ],

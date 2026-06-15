@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
 
 import '../core/date_format.dart';
 import '../core/theme/app_theme.dart';
 import '../core/widgets/bottom_nav_bar.dart';
 import '../core/widgets/mr_icon_button.dart';
 import '../features/add/presentation/add_overlay.dart';
+import '../features/add/presentation/smart_add_bar.dart';
+import '../features/add/presentation/smart_add_controller.dart';
 import '../router/routes.dart';
 
 /// The swipeable shell rendered by the `StatefulShellRoute`'s
@@ -228,21 +231,28 @@ class _SwipeShellState extends State<SwipeShell> {
               ),
             ),
 
-            // Fixed bottom nav — fades + lifts away as the strip nears the
-            // overlay (page 0), and still flies out on vertical scroll.
+            // Fixed bottom area — the Smart Add result bar while a background
+            // job is pending, otherwise the bottom nav (which fades away near
+            // the overlay and flies out on vertical scroll).
             Positioned(
               bottom: 22,
               left: 20,
               right: 20,
               child: _fadingChrome(
-                AnimatedSlide(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOut,
-                  offset: _navBarVisible ? Offset.zero : const Offset(0, 2.5),
-                  child: BottomNavBar(
-                    activeIndex: _branchIndex,
-                    onTap: _goBranch,
-                  ),
+                Consumer<SmartAddController>(
+                  builder: (context, smartAdd, _) => smartAdd.isIdle
+                      ? AnimatedSlide(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                          offset: _navBarVisible
+                              ? Offset.zero
+                              : const Offset(0, 2.5),
+                          child: BottomNavBar(
+                            activeIndex: _branchIndex,
+                            onTap: _goBranch,
+                          ),
+                        )
+                      : SmartAddBar(controller: smartAdd),
                 ),
               ),
             ),

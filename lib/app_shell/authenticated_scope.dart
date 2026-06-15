@@ -8,6 +8,7 @@ import '../core/app_errors.dart';
 import '../core/theme/app_theme.dart';
 import '../shared/ai/data/cloud_function_ai_service.dart';
 import '../shared/ai/domain/ai_service.dart';
+import '../features/add/presentation/smart_add_controller.dart';
 import '../features/calendar/data/firebase_event_repo.dart';
 import '../features/calendar/domain/event_repo.dart';
 import '../features/chat/data/firebase_chat_repo.dart';
@@ -102,6 +103,19 @@ class AuthenticatedScope extends StatelessWidget {
               create: (_) => FirebaseAchievementRepo(db, uid),
             ),
             Provider<ChatRepo>(create: (_) => FirebaseChatRepo(db, uid)),
+
+            // Background Smart Add job (in-memory; surfaces the shell's result
+            // bar). Depends on the AI proxy + the repos it writes to, all above.
+            ChangeNotifierProvider<SmartAddController>(
+              create: (c) => SmartAddController(
+                ai: c.read<AiService>(),
+                todoRepo: c.read<TodoRepo>(),
+                eventRepo: c.read<EventRepo>(),
+                ideaRepo: c.read<IdeaRepo>(),
+                noteRepo: c.read<NoteRepo>(),
+                recapRepo: c.read<RecapRepo>(),
+              ),
+            ),
 
             // ── Settings ──
             Provider<SettingsRepo>(
