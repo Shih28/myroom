@@ -12,7 +12,9 @@ recaps). A recap page summarizes achievements and past/future eras.
   return `Result`; the UI re-renders from the stream (no separate optimistic store). The root
   provider tier (auth + Firebase singletons + `AiService`) is in `app.dart`; user-scoped repos mount
   in `app_shell/authenticated_scope.dart`, built from a non-null `uid` after the `users/{uid}` root
-  doc exists.
+  doc exists. The `StatefulShellRoute`'s `navigatorContainerBuilder` lays the five tabs + the Smart
+  Add overlay out as a swipeable `PageView` strip (`app_shell/swipe_shell.dart`): edge-10% drags
+  switch tab / reveal Add, centre drags defer to in-page gestures (calendar month-flip, todo delete).
 - **Backend (`functions/`)** — TypeScript Cloud Functions, region `us-central1`. Seven callables
   (`chat`, `classifyMultiInput`, `fetchRecommendations`, `generateEraInsight`, `transcribe`,
   `exportRecap`, `exportAchievement`) on the OpenAI Responses API, plus triggers (`provisionUser`,
