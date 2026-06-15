@@ -1,32 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/app_errors.dart';
-import '../../../core/result.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../features/calendar/domain/event_repo.dart';
-import '../../../features/calendar/domain/pending_event.dart';
 import '../../../shared/ai/domain/ai_service.dart';
 import '../domain/chat_message.dart';
+import '../domain/chat_repo.dart';
 
 /// AI Chat overlay — a pushed full-screen route (owns its own [Scaffold]).
 ///
-/// Messages are held in memory only; the thread is fresh on every app launch.
-/// Within a session, the OpenAI response ID is forwarded to the cloud function
-/// so multi-turn context is preserved.
+/// Phase 1 is READ-ONLY over Firestore: it streams the latest messages from
+/// [ChatRepo.watchMessages] and renders them as bubbles. Sending is Phase 2
+/// (a server-side Cloud Function appends messages); the input stays visible but
+/// submitting only shows a "coming soon" notice and never writes to Firestore.
 class ChatOverlay extends StatelessWidget {
   const ChatOverlay({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return StreamProvider<List<PendingEvent>>(
-      create: (c) => c.read<EventRepo>().watchPendingEvents(),
+    return StreamProvider<List<ChatMessage>>(
+      create: (c) => c.read<ChatRepo>().watchMessages(),
       initialData: const [],
       catchError: (c, e) {
         AppErrors.present(e);
-        return const <PendingEvent>[];
+        return const <ChatMessage>[];
       },
       child: const _ChatView(),
     );
@@ -41,23 +39,45 @@ class _ChatView extends StatefulWidget {
 }
 
 class _ChatViewState extends State<_ChatView> {
+  // Must match FirebaseChatRepo._pageSize: a full window means older history may
+  // exist, a short one means the thread start has been reached.
+  static const int _pageSize = 50;
+
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   bool _sending = false;
 
-  // In-memory thread — cleared on every app launch.
-  final List<ChatMessage> _messages = [];
-  // Carries the OpenAI response ID across turns so multi-turn context is
-  // preserved within the session without persisting anything to Firestore.
-  String? _previousResponseId;
-  int _nextId = 0;
-  final Map<String, (PendingEvent, String)> _handled = {};
+  // Pagination. The live stream only carries the latest [_pageSize] messages;
+  // older pages fetched via [loadOlder] are accumulated here. We merge both into
+  // [_byId] (the thread is append-only, so accumulating by id never gaps or
+  // double-counts) and render the id map sorted by createdAt.
+  final Map<String, ChatMessage> _byId = {};
+  bool _hasMore = false;
+  bool _initializedHasMore = false;
+  bool _loadingOlder = false;
+  String? _lastTailId;
 
   @override
   void dispose() {
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  /// Fetches the page of messages older than the oldest one currently shown and
+  /// merges it in. Triggered by the "載入較早的訊息" control at the top.
+  Future<void> _loadOlder(List<ChatMessage> current) async {
+    if (_loadingOlder || current.isEmpty) return;
+    setState(() => _loadingOlder = true);
+    final older = await context.read<ChatRepo>().loadOlder(current.first.createdAt);
+    if (!mounted) return;
+    setState(() {
+      for (final m in older) {
+        _byId[m.id] = m;
+      }
+      if (older.length < _pageSize) _hasMore = false;
+      _loadingOlder = false;
+    });
   }
 
   void _scrollToBottom() {
@@ -72,72 +92,43 @@ class _ChatViewState extends State<_ChatView> {
     });
   }
 
-  Future<void> _confirmEvent(PendingEvent pending) async {
-    setState(() => _handled[pending.id] = (pending, '已確認'));
-    final repo = context.read<EventRepo>();
-    await repo.add(pending.toCalendarEvent());
-    await repo.deletePendingEvent(pending.id);
-  }
-
-  Future<void> _cancelEvent(PendingEvent pending) async {
-    setState(() => _handled[pending.id] = (pending, '已取消'));
-    await context.read<EventRepo>().deletePendingEvent(pending.id);
-  }
-
+  /// Sends the message through the `chat` Cloud Function. The function appends
+  /// the user turn (shown immediately via the stream) and the assistant reply;
+  /// while we await, a typing indicator shows and the input is disabled.
   Future<void> _send() async {
     final text = _inputCtrl.text.trim();
     if (text.isEmpty || _sending) return;
     FocusScope.of(context).unfocus();
     _inputCtrl.clear();
-
-    // Optimistically show the user bubble immediately.
-    setState(() {
-      _messages.add(ChatMessage(
-        id: '${_nextId++}',
-        role: 'user',
-        content: text,
-        createdAt: DateTime.now(),
-      ));
-      _sending = true;
-    });
-    _scrollToBottom();
-
-    final result = await context
-        .read<AiService>()
-        .chat(text, previousResponseId: _previousResponseId);
-
-    if (!mounted) return;
-    if (result case Ok(:final value)) {
-      setState(() {
-        _previousResponseId =
-            value.responseId.isNotEmpty ? value.responseId : null;
-        _messages.add(ChatMessage(
-          id: '${_nextId++}',
-          role: 'assistant',
-          content: value.reply,
-          createdAt: DateTime.now(),
-        ));
-      });
-    }
-    // Err: already surfaced by AiService via AppErrors.
-    setState(() => _sending = false);
-    _scrollToBottom();
+    setState(() => _sending = true);
+    await context.read<AiService>().chat(text);
+    if (mounted) setState(() => _sending = false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final activeEvents = context.watch<List<PendingEvent>>();
-    final activeIds = {for (final e in activeEvents) e.id};
-    // Events already handled (status set) that the stream has since removed.
-    final doneCards = _handled.entries
-        .where((entry) => !activeIds.contains(entry.key))
-        .map((entry) => entry.value)
-        .toList();
-    // Active events (with possible status override) followed by done cards.
-    final allCards = [
-      ...activeEvents.map((e) => (e, _handled[e.id]?.$2)),
-      ...doneCards,
-    ];
+    final streamed = context.watch<List<ChatMessage>>();
+    // Accumulate the live window into the id map (append-only → safe to merge).
+    for (final m in streamed) {
+      _byId[m.id] = m;
+    }
+    // Decide once, from the first non-empty window, whether older history exists.
+    if (!_initializedHasMore && streamed.isNotEmpty) {
+      _initializedHasMore = true;
+      _hasMore = streamed.length >= _pageSize;
+    }
+    final messages = _byId.values.toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // Auto-scroll to the latest only when a NEW tail message arrives (a send or
+    // an AI reply) — not when older history is prepended.
+    final tailId = messages.isNotEmpty ? messages.last.id : null;
+    if (tailId != _lastTailId) {
+      _lastTailId = tailId;
+      _scrollToBottom();
+    } else if (_sending) {
+      _scrollToBottom();
+    }
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -188,31 +179,30 @@ class _ChatViewState extends State<_ChatView> {
 
             // Messages
             Expanded(
-              child: _messages.isEmpty && allCards.isEmpty && !_sending
+              child: messages.isEmpty && !_sending
                   ? const _EmptyState()
-                  : ListView.builder(
-                      controller: _scrollCtrl,
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                      itemCount: _messages.length +
-                          allCards.length +
-                          (_sending ? 1 : 0),
-                      itemBuilder: (_, idx) {
-                        if (idx < _messages.length) {
-                          return _Bubble(message: _messages[idx]);
-                        }
-                        final pi = idx - _messages.length;
-                        if (pi < allCards.length) {
-                          final (event, status) = allCards[pi];
-                          return _PendingEventCard(
-                            event: event,
-                            status: status,
-                            onConfirm: () => _confirmEvent(event),
-                            onCancel: () => _cancelEvent(event),
-                          );
-                        }
-                        return const _TypingBubble();
-                      },
-                    ),
+                  : Builder(builder: (context) {
+                      // index 0 = load-more control (only when older history may
+                      // exist); then the messages; then the typing bubble.
+                      final lead = _hasMore ? 1 : 0;
+                      return ListView.builder(
+                        controller: _scrollCtrl,
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                        itemCount: lead + messages.length + (_sending ? 1 : 0),
+                        itemBuilder: (_, idx) {
+                          if (lead == 1 && idx == 0) {
+                            return _LoadMore(
+                              loading: _loadingOlder,
+                              onTap: () => _loadOlder(messages),
+                            );
+                          }
+                          final i = idx - lead;
+                          return i < messages.length
+                              ? _Bubble(message: messages[i])
+                              : const _TypingBubble();
+                        },
+                      );
+                    }),
             ),
 
             // Input row
@@ -274,6 +264,45 @@ class _ChatViewState extends State<_ChatView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Top-of-thread control to fetch the previous page of messages.
+class _LoadMore extends StatelessWidget {
+  const _LoadMore({required this.loading, required this.onTap});
+
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
+      child: Center(
+        child: loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: AppColors.muted),
+              )
+            : GestureDetector(
+                onTap: onTap,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Text('載入較早的訊息',
+                      style: AppText.caption(size: 12, color: AppColors.muted)),
+                ),
+              ),
       ),
     );
   }
@@ -395,172 +424,13 @@ class _Bubble extends StatelessWidget {
                 ),
                 boxShadow: const [kCardShadow],
               ),
-              child: isUser
-                  ? Text(
-                      message.content,
-                      style: AppText.body(
-                          size: 13, color: Colors.white, height: 1.65),
-                    )
-                  : MarkdownBody(
-                      data: message.content,
-                      softLineBreak: true,
-                      styleSheet: MarkdownStyleSheet(
-                        p: AppText.body(
-                            size: 13, color: AppColors.dark, height: 1.65),
-                        strong: AppText.body(
-                            size: 13,
-                            weight: FontWeight.w700,
-                            color: AppColors.dark,
-                            height: 1.65),
-                        em: AppText.body(
-                                size: 13, color: AppColors.dark, height: 1.65)
-                            .copyWith(fontStyle: FontStyle.italic),
-                        listBullet: AppText.body(
-                            size: 13, color: AppColors.dark, height: 1.65),
-                        h1: AppText.body(
-                            size: 18,
-                            weight: FontWeight.w700,
-                            color: AppColors.dark),
-                        h2: AppText.body(
-                            size: 16,
-                            weight: FontWeight.w600,
-                            color: AppColors.dark),
-                        h3: AppText.body(
-                            size: 14,
-                            weight: FontWeight.w600,
-                            color: AppColors.dark),
-                        code: AppText.body(size: 12, color: AppColors.dark)
-                            .copyWith(backgroundColor: AppColors.border),
-                        blockSpacing: 8,
-                        listIndent: 20,
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PendingEventCard extends StatelessWidget {
-  const _PendingEventCard({
-    required this.event,
-    this.status,
-    required this.onConfirm,
-    required this.onCancel,
-  });
-
-  final PendingEvent event;
-  final String? status;
-  final VoidCallback onConfirm;
-  final VoidCallback onCancel;
-
-  static String _fmt(DateTime dt) =>
-      '${dt.year}/${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}  '
-      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-
-  @override
-  Widget build(BuildContext context) {
-    final e = event;
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.85,
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  topRight: Radius.circular(18),
-                  bottomLeft: Radius.circular(4),
-                  bottomRight: Radius.circular(18),
+              child: Text(
+                message.content,
+                style: AppText.body(
+                  size: 13,
+                  color: isUser ? Colors.white : AppColors.dark,
+                  height: 1.65,
                 ),
-                border: Border.all(color: AppColors.border),
-                boxShadow: const [kCardShadow],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(LucideIcons.calendar,
-                          size: 13, color: AppColors.muted),
-                      const SizedBox(width: 5),
-                      Text('建議新增行程',
-                          style: AppText.caption(
-                              size: 11, color: AppColors.muted)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(e.title,
-                      style: AppText.body(
-                          size: 14, weight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_fmt(e.startTime)}  —  ${_fmt(e.endTime)}',
-                    style: AppText.caption(size: 12, color: AppColors.muted),
-                  ),
-                  if (e.location != null && e.location!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(e.location!,
-                        style: AppText.caption(
-                            size: 12, color: AppColors.muted)),
-                  ],
-                  if (e.description != null && e.description!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(e.description!,
-                        style: AppText.caption(
-                            size: 12, color: AppColors.muted)),
-                  ],
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: status != null
-                        ? [
-                            Text(status!,
-                                style: AppText.caption(
-                                    size: 13, color: AppColors.muted)),
-                          ]
-                        : [
-                            GestureDetector(
-                              onTap: onCancel,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 7),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: AppColors.border),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text('取消',
-                                    style: AppText.caption(size: 13)),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: onConfirm,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: AppColors.dark,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text('確認新增',
-                                    style: AppText.caption(
-                                        size: 13, color: Colors.white)),
-                              ),
-                            ),
-                          ],
-                  ),
-                ],
               ),
             ),
           ),
